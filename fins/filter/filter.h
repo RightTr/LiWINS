@@ -62,4 +62,25 @@ namespace lidar_updater
         esekfom::dyn_share_datastruct<double>& ekfom_data);
 } // namespace lidar_updater
 
+// ===========================
+// WHEEL ENCODER UPDATER FUNCTIONS
+// ===========================
+
+// namespace wheel_updater
+// {
+//     struct WheelOdom
+//     {
+//         double x;
+//         double y;
+//         double yaw;
+//     };
+
+//     void build_measurement_model(
+//         const state_ikfom& s,
+//         const WheelOdom& wheel_odom,
+//         bool extrinsic_est_en,
+//         esekfom::dyn_share_datastruct<double>& ekfom_data);
+// }
+
+
 #endif // ESTIMATOR_H

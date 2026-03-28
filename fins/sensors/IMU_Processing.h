@@ -39,7 +39,7 @@ using ImuMsg = sensor_msgs::msg::Imu;
 
 /// *************Preconfiguration
 
-#define MAX_INI_COUNT (10)
+#define MAX_INI_COUNT (20)
 
 bool time_list(PointType &x, PointType &y);
 

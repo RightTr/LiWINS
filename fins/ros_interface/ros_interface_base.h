@@ -11,7 +11,7 @@
 
 #include "common_lib.h"
 #include "sensors/preprocess.h"
-#include "sensors/IMU_Processing.hpp"
+#include "sensors/IMU_Processing.h"
 #include "posebuffer.h"
 #include <reloc.h>
 

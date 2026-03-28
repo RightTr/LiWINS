@@ -137,3 +137,29 @@ void build_measurement_model(
 }
 
 } // namespace lidar_updater
+
+// ===========================
+// WHEEL ENCODER UPDATER IMPLEMENTATION
+// ===========================
+
+// namespace wheel_updater
+// {
+
+// void build_measurement_model(
+// 	const state_ikfom& s,
+// 	const WheelOdom& wheel_odom,
+// 	bool extrinsic_est_en,
+// 	esekfom::dyn_share_datastruct<double>& ekfom_data)
+// {
+// 	if (extrinsic_est_en)
+// 	{
+
+// 	}
+// 	else
+// 	{
+		
+// 	}
+// 	ekfom_data.h(i) = -norm_p.intensity;
+// }
+
+// }

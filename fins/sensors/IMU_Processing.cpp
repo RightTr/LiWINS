@@ -1,4 +1,4 @@
-#include "sensors/IMU_Processing.hpp"
+#include "sensors/IMU_Processing.h"
 
 bool time_list(PointType &x, PointType &y) { return (x.curvature < y.curvature); }
 
@@ -279,11 +279,7 @@ void ImuProcess::Process(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 1
       imu_need_init_ = false;
       cov_acc = cov_acc_scale;
       cov_gyr = cov_gyr_scale;
-#ifdef USE_ROS1
-      ROS_INFO("IMU Initial Done");
-#elif defined(USE_ROS2)
-      RCLCPP_INFO(rclcpp::get_logger("fins"), "IMU Initial Done");
-#endif
+      
       fout_imu.open(DEBUG_FILE_DIR("imu.txt"), ios::out);
     }
     return;
