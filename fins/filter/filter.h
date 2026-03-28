@@ -48,6 +48,49 @@ Eigen::Matrix<double, 24, 12> df_dw(state_ikfom &s, const input_ikfom &in);
 vect3 SO3ToEuler(const SO3 &orient);
 
 // ===========================
+// IMU ESTIMATOR (PREDICT STEP)
+// ===========================
+
+/**
+ * IMU propagation step: forward-propagates the EKF state by dt, then calls
+ * every update function supplied by the caller.
+ *
+ * Usage:
+ *   // IMU only
+ *   estimator(kf, dt, in, Q);
+ *
+ *   // IMU + ZUPT at IMU frequency
+ *   estimator(kf, dt, in, Q, {zupt_updater::update});
+ *
+ *   // IMU + ZUPT + wheel at IMU frequency
+ *   estimator(kf, dt, in, Q, {
+ *       zupt_updater::update,
+ *       [&](auto& k){ wheel_updater::update(k, wheel_vel); }
+ *   });
+ */
+using UpdateFn = std::function<void(esekfom::esekf<state_ikfom, 12, input_ikfom>&)>;
+
+void estimator(
+    esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
+    double dt,
+    const input_ikfom& in,
+    Eigen::Matrix<double, 12, 12>& Q,
+    std::initializer_list<UpdateFn> updates = {});
+
+// ===========================
+// ZUPT UPDATERS FUNCTIONS
+// (standard single-step KF, no esekfom iteration needed)
+// ===========================
+
+namespace zupt_updater  { void update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state); }
+
+// ===========================
+// WHEEL ENCODER UPDATER FUNCTIONS
+// ===========================
+
+// namespace wheel_updater { void update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state); }
+
+// ===========================
 // LIDAR UPDATER FUNCTIONS
 // ===========================
 
@@ -61,26 +104,5 @@ namespace lidar_updater
         bool extrinsic_est_en,
         esekfom::dyn_share_datastruct<double>& ekfom_data);
 } // namespace lidar_updater
-
-// ===========================
-// WHEEL ENCODER UPDATER FUNCTIONS
-// ===========================
-
-// namespace wheel_updater
-// {
-//     struct WheelOdom
-//     {
-//         double x;
-//         double y;
-//         double yaw;
-//     };
-
-//     void build_measurement_model(
-//         const state_ikfom& s,
-//         const WheelOdom& wheel_odom,
-//         bool extrinsic_est_en,
-//         esekfom::dyn_share_datastruct<double>& ekfom_data);
-// }
-
 
 #endif // ESTIMATOR_H

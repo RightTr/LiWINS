@@ -87,6 +87,60 @@ vect3 SO3ToEuler(const SO3 &orient)
 }
 
 // ===========================
+// IMU ESTIMATOR (PREDICT STEP)
+// ===========================
+
+void estimator(
+    esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
+    double dt,
+    const input_ikfom& in,
+    Eigen::Matrix<double, 12, 12>& Q,
+    std::initializer_list<UpdateFn> updates)
+{
+    kf_state.predict(dt, Q, in);
+    for (const auto& update : updates)
+        update(kf_state);
+}
+
+// ===========================
+// ZUPT UPDATER FUNCTIONS
+// ===========================
+
+namespace zupt_updater
+{
+void update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state)
+{
+	const state_ikfom& s = kf_state.get_x();
+	esekfom::dyn_share_datastruct<double> ekfom_data;
+
+	ekfom_data.h_x = MatrixXd::Zero(3, state_ikfom::DOF);
+	ekfom_data.h.resize(3);
+	// ZUPT measurement model: vel = 0
+	ekfom_data.h_x.block<3, 3>(0, 12) = Eigen::Matrix3d::Identity();
+	ekfom_data.h.block<3, 1>(0, 0) = -s.vel;
+	ekfom_data.R = MatrixXd::Identity(3, 3) * 1e-4;
+
+	const MatrixXd& H = ekfom_data.h_x;
+	const VectorXd& r = ekfom_data.h;
+	const MatrixXd& R = ekfom_data.R;
+
+	auto P = kf_state.get_P();
+	const MatrixXd K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
+	const Matrix<double, state_ikfom::DOF, state_ikfom::DOF> I =
+		Matrix<double, state_ikfom::DOF, state_ikfom::DOF>::Identity();
+
+	state_ikfom x = kf_state.get_x();
+	x.boxplus(Matrix<double, state_ikfom::DOF, 1>(K * r));
+	kf_state.change_x(x);
+
+	const Matrix<double, state_ikfom::DOF, state_ikfom::DOF> KH = K * H;
+	Matrix<double, state_ikfom::DOF, state_ikfom::DOF> P_new =
+		(I - KH) * P * (I - KH).transpose() + K * R * K.transpose();
+	kf_state.change_P(P_new);
+}
+} // namespace zupt_updater
+
+// ===========================
 // LIDAR UPDATER IMPLEMENTATION
 // ===========================
 
@@ -137,29 +191,3 @@ void build_measurement_model(
 }
 
 } // namespace lidar_updater
-
-// ===========================
-// WHEEL ENCODER UPDATER IMPLEMENTATION
-// ===========================
-
-// namespace wheel_updater
-// {
-
-// void build_measurement_model(
-// 	const state_ikfom& s,
-// 	const WheelOdom& wheel_odom,
-// 	bool extrinsic_est_en,
-// 	esekfom::dyn_share_datastruct<double>& ekfom_data)
-// {
-// 	if (extrinsic_est_en)
-// 	{
-
-// 	}
-// 	else
-// 	{
-		
-// 	}
-// 	ekfom_data.h(i) = -norm_p.intensity;
-// }
-
-// }

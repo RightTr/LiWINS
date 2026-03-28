@@ -61,6 +61,17 @@ class ImuProcess
   void set_acc_cov(const V3D &scaler);
   void set_gyr_bias_cov(const V3D &b_g);
   void set_acc_bias_cov(const V3D &b_a);
+  void set_use_zupt(bool enabled) { use_zupt = enabled; }
+  void set_use_known_initial_attitude(bool enabled, const M3D& init_rot = M3D::Identity())
+  {
+    use_known_initial_attitude = enabled;
+    known_initial_rot = init_rot;
+  }
+  void set_zupt_thresholds(double acc_norm_threshold, double gyro_threshold)
+  {
+    zupt_acc_norm_threshold = acc_norm_threshold;
+    zupt_gyro_threshold = gyro_threshold;
+  }
   Eigen::Matrix<double, 12, 12> Q;
   void Process(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr pcl_un_);
 
@@ -77,6 +88,11 @@ class ImuProcess
   int lidar_type;
   PoseBuffer pbuffer;
 
+  bool use_zupt = false;
+  bool use_known_initial_attitude = false;
+  double zupt_acc_norm_threshold;
+  double zupt_gyro_threshold;
+
  private:
   void IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, int &N);
   void UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI &pcl_in_out);
@@ -92,6 +108,7 @@ class ImuProcess
   V3D mean_gyr;
   V3D angvel_last;
   V3D acc_s_last;
+  M3D known_initial_rot = Eye3d;
   double start_timestamp_;
   double last_lidar_end_time_;
   int    init_iter_num = 1;

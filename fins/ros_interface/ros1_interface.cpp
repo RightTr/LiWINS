@@ -27,6 +27,8 @@ void ROS1_Interface::load_config()
     nh_.param<double>("mapping/acc_cov",                 acc_cov,                0.1);
     nh_.param<double>("mapping/b_gyr_cov",               b_gyr_cov,              0.0001);
     nh_.param<double>("mapping/b_acc_cov",               b_acc_cov,              0.0001);
+    nh_.param<double>("mapping/zupt_gyro_threshold",     zupt_gyro_threshold,     0.05);
+    nh_.param<double>("mapping/zupt_acc_norm_threshold", zupt_acc_norm_threshold, 0.30);
     nh_.param<double>("preprocess/blind",                p_pre->blind,           0.01);
     nh_.param<int>("preprocess/lidar_type",              lidar_type,             AVIA);
     nh_.param<int>("preprocess/scan_line",               p_pre->N_SCANS,         16);
@@ -36,10 +38,13 @@ void ROS1_Interface::load_config()
     nh_.param<bool>("feature_extract_enable",            p_pre->feature_enabled, false);
     nh_.param<bool>("runtime_pos_log_enable",            runtime_pos_log,        0);
     nh_.param<bool>("mapping/extrinsic_est_en",          extrinsic_est_en,       true);
+    nh_.param<bool>("mapping/use_zupt", use_zupt, false);
+    nh_.param<bool>("mapping/use_known_initial_attitude", use_known_initial_attitude, false);
     nh_.param<bool>("pcd_save/pcd_save_en",              pcd_save_en,            false);
     nh_.param<int>("pcd_save/interval",                  pcd_save_interval,      -1);
     nh_.param<std::vector<double>>("mapping/extrinsic_T", extrinT,               std::vector<double>());
     nh_.param<std::vector<double>>("mapping/extrinsic_R", extrinR,               std::vector<double>());
+    nh_.param<std::vector<double>>("mapping/initial_attitude", initial_attitude, std::vector<double>());
     nh_.param<int>("publish/odom_imu_frequency",         odom_imu_frequency,     100);
     p_pre->lidar_type = lidar_type;
 }

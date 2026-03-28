@@ -83,6 +83,8 @@ public:
   bool   time_sync_en         = false;
   bool   runtime_pos_log      = false;
   bool   extrinsic_est_en     = true;
+  bool   use_zupt             = false;
+  bool   use_known_initial_attitude = false;
   bool   pcd_save_en          = false;
 
   int    NUM_MAX_ITERATIONS   = 4;
@@ -102,6 +104,8 @@ public:
   double acc_cov                  = 0.1;
   double b_gyr_cov                = 0.0001;
   double b_acc_cov                = 0.0001;
+  double zupt_gyro_threshold      = 0.05;
+  double zupt_acc_norm_threshold  = 0.30;
 
   std::string map_file_path;
   std::string lid_topic       = "/livox/lidar";
@@ -110,6 +114,7 @@ public:
 
   std::vector<double> extrinT;
   std::vector<double> extrinR;
+  std::vector<double> initial_attitude;
 
   std::shared_ptr<Preprocess> p_pre = std::make_shared<Preprocess>();
   std::shared_ptr<ImuProcess> p_imu = std::make_shared<ImuProcess>();

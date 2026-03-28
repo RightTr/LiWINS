@@ -49,6 +49,8 @@ void ROS2_Interface::load_config()
 	acc_cov                = node_->declare_parameter<double>("mapping.acc_cov", 0.1);
 	b_gyr_cov              = node_->declare_parameter<double>("mapping.b_gyr_cov", 0.0001);
 	b_acc_cov              = node_->declare_parameter<double>("mapping.b_acc_cov", 0.0001);
+	zupt_gyro_threshold     = node_->declare_parameter<double>("mapping.zupt_gyro_threshold", 0.05);
+	zupt_acc_norm_threshold = node_->declare_parameter<double>("mapping.zupt_acc_norm_threshold", 0.30);
 
 	p_pre->blind            = node_->declare_parameter<double>("preprocess.blind", 0.01);
 	lidar_type              = node_->declare_parameter<int>("preprocess.lidar_type", AVIA);
@@ -59,12 +61,15 @@ void ROS2_Interface::load_config()
 	p_pre->feature_enabled  = node_->declare_parameter<bool>("feature_extract_enable", false);
 	runtime_pos_log         = node_->declare_parameter<bool>("runtime_pos_log_enable", false);
 	extrinsic_est_en        = node_->declare_parameter<bool>("mapping.extrinsic_est_en", true);
+	use_zupt = node_->declare_parameter<bool>("mapping.use_zupt", false);
+	use_known_initial_attitude = node_->declare_parameter<bool>("mapping.use_known_initial_attitude", false);
 	pcd_save_en             = node_->declare_parameter<bool>("pcd_save.pcd_save_en", false);
 	pcd_save_interval       = node_->declare_parameter<int>("pcd_save.interval", -1);
 	odom_imu_frequency      = node_->declare_parameter<int>("publish.odom_imu_frequency", 100);
 
 	extrinT = node_->declare_parameter<std::vector<double>>("mapping.extrinsic_T", std::vector<double>());
 	extrinR = node_->declare_parameter<std::vector<double>>("mapping.extrinsic_R", std::vector<double>());
+	initial_attitude = node_->declare_parameter<std::vector<double>>("mapping.initial_attitude",std::vector<double>());
 
 	p_pre->lidar_type = lidar_type;
 }

@@ -16,6 +16,7 @@ static void h_share_model_cb(state_ikfom& s, esekfom::dyn_share_datastruct<doubl
 void LaserMapping::init()
 {
     auto* ri = ros_interface_;
+    auto* p_imu = ri->p_imu.get();
 
     FOV_DEG_      = (ri->fov_deg + 10.0) > 179.9 ? 179.9 : (ri->fov_deg + 10.0);
     HALF_FOV_COS_ = cos(FOV_DEG_ * 0.5 * PI_M / 180.0);
@@ -30,17 +31,21 @@ void LaserMapping::init()
     
     Lidar_T_wrt_IMU_ << VEC_FROM_ARRAY(ri->extrinT);
     Lidar_R_wrt_IMU_ << MAT_FROM_ARRAY(ri->extrinR);
-
-    ri->p_imu->set_extrinsic(Lidar_T_wrt_IMU_, Lidar_R_wrt_IMU_);
-    ri->p_imu->set_gyr_cov(V3D(ri->gyr_cov,   ri->gyr_cov,   ri->gyr_cov));
-    ri->p_imu->set_acc_cov(V3D(ri->acc_cov,   ri->acc_cov,   ri->acc_cov));
-    ri->p_imu->set_gyr_bias_cov(V3D(ri->b_gyr_cov, ri->b_gyr_cov, ri->b_gyr_cov));
-    ri->p_imu->set_acc_bias_cov(V3D(ri->b_acc_cov, ri->b_acc_cov, ri->b_acc_cov));
-    ri->p_imu->lidar_type = ri->lidar_type;
+    p_imu->set_extrinsic(Lidar_T_wrt_IMU_, Lidar_R_wrt_IMU_);
+    p_imu->set_gyr_cov(V3D(ri->gyr_cov,   ri->gyr_cov,   ri->gyr_cov));
+    p_imu->set_acc_cov(V3D(ri->acc_cov,   ri->acc_cov,   ri->acc_cov));
+    p_imu->set_gyr_bias_cov(V3D(ri->b_gyr_cov, ri->b_gyr_cov, ri->b_gyr_cov));
+    p_imu->set_acc_bias_cov(V3D(ri->b_acc_cov, ri->b_acc_cov, ri->b_acc_cov));
+    p_imu->lidar_type = ri->lidar_type;
+    p_imu->set_use_zupt(ri->use_zupt);
+    known_initial_rot << MAT_FROM_ARRAY(ri->initial_attitude);
+    p_imu->set_use_known_initial_attitude(ri->use_known_initial_attitude, known_initial_rot);
+    p_imu->set_zupt_thresholds(ri->zupt_acc_norm_threshold, ri->zupt_gyro_threshold);
 
     g_laser_mapping = this;
     double epsi[23] = {0.001};
     fill(epsi, epsi + 23, 0.001);
+    // Always bind one callback; choose lidar/zupt dynamically in h_share_model_impl.
     kf_.init_dyn_share(get_f, df_dx, df_dw, h_share_model_cb, ri->NUM_MAX_ITERATIONS, epsi);
 
     if (ri->sam_enable)

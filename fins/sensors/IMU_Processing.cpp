@@ -2,6 +2,16 @@
 
 bool time_list(PointType &x, PointType &y) { return (x.curvature < y.curvature); }
 
+inline double get_ros_time(const ImuMsgConstPtr &msg)
+{
+#ifdef USE_ROS1
+  return msg->header.stamp.toSec();
+#elif defined(USE_ROS2)
+  return msg->header.stamp.sec + 1e-9 * msg->header.stamp.nanosec;
+#endif
+}
+
+
 ImuProcess::ImuProcess()
     : b_first_frame_(true), imu_need_init_(true), start_timestamp_(-1)
 {
@@ -110,7 +120,17 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 
     N ++;
   }
   state_ikfom init_state = kf_state.get_x();
-  init_state.grav = S2(- mean_acc / mean_acc.norm() * G_m_s2);
+  if (use_known_initial_attitude)
+  {
+    const V3D gravity_world(0.0, 0.0, -G_m_s2);
+    init_state.rot = SO3(known_initial_rot);
+    init_state.grav = S2(gravity_world);
+    init_state.ba = mean_acc + known_initial_rot.transpose() * gravity_world;
+  }
+  else
+  {
+    init_state.grav = S2(-mean_acc / mean_acc.norm() * G_m_s2);
+  }
   init_state.bg  = mean_gyr;
   init_state.offset_T_L_I = Lidar_T_wrt_IMU;
   init_state.offset_R_L_I = Lidar_R_wrt_IMU;
@@ -131,13 +151,8 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
 {
   auto v_imu = meas.imu;
   v_imu.push_front(last_imu_);
-#ifdef USE_ROS1
-  const double &imu_beg_time = v_imu.front()->header.stamp.toSec();
-  const double &imu_end_time = v_imu.back()->header.stamp.toSec();
-#elif defined(USE_ROS2)
-  const double &imu_beg_time = v_imu.front()->header.stamp.sec + 1e-9 * v_imu.front()->header.stamp.nanosec;
-  const double &imu_end_time = v_imu.back()->header.stamp.sec + 1e-9 * v_imu.back()->header.stamp.nanosec;
-#endif
+  const double imu_beg_time = get_ros_time(v_imu.front());
+  const double imu_end_time = get_ros_time(v_imu.back());
 
   double pcl_beg_time = meas.lidar_beg_time;
   double pcl_end_time = meas.lidar_end_time;
@@ -163,12 +178,10 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   {
     auto &&head = *(it_imu);
     auto &&tail = *(it_imu + 1);
+    const double head_time = get_ros_time(head);
+    const double tail_time = get_ros_time(tail);
 
-#ifdef USE_ROS1
-    if (head->header.stamp.toSec() < last_lidar_end_time_) continue;
-#elif defined(USE_ROS2)
-    if ((head->header.stamp.sec + 1e-9 * head->header.stamp.nanosec) < last_lidar_end_time_) continue;
-#endif
+    if (head_time < last_lidar_end_time_) continue;
 
     angvel_avr << 0.5 * (head->angular_velocity.x + tail->angular_velocity.x),
                   0.5 * (head->angular_velocity.y + tail->angular_velocity.y),
@@ -179,17 +192,10 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
 
     acc_avr = acc_avr * G_m_s2 / mean_acc.norm();
 
-#ifdef USE_ROS1
-    if (head->header.stamp.toSec() < last_lidar_end_time_)
-      dt = tail->header.stamp.toSec() - last_lidar_end_time_;
+    if (head_time < last_lidar_end_time_)
+      dt = tail_time - last_lidar_end_time_;
     else
-      dt = tail->header.stamp.toSec() - head->header.stamp.toSec();
-#elif defined(USE_ROS2)
-    if ((head->header.stamp.sec + 1e-9 * head->header.stamp.nanosec) < last_lidar_end_time_)
-      dt = (tail->header.stamp.sec + 1e-9 * tail->header.stamp.nanosec) - last_lidar_end_time_;
-    else
-      dt = (tail->header.stamp.sec + 1e-9 * tail->header.stamp.nanosec) - (head->header.stamp.sec + 1e-9 * head->header.stamp.nanosec);
-#endif
+      dt = tail_time - head_time;
 
     in.acc = acc_avr;
     in.gyro = angvel_avr;
@@ -197,33 +203,33 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     Q.block<3, 3>(3, 3).diagonal() = cov_acc;
     Q.block<3, 3>(6, 6).diagonal() = cov_bias_gyr;
     Q.block<3, 3>(9, 9).diagonal() = cov_bias_acc;
-    kf_state.predict(dt, Q, in);
+
+    const bool is_static = std::fabs(acc_avr.norm() - G_m_s2) < zupt_acc_norm_threshold && angvel_avr.norm() < zupt_gyro_threshold;
+    if (use_zupt && is_static)
+      estimator(kf_state, dt, in, Q, {zupt_updater::update});
+    else
+      estimator(kf_state, dt, in, Q);
 
     imu_state = kf_state.get_x();
-#ifdef USE_ROS1
     pbuffer.Push(Pose(imu_state.pos.x(), imu_state.pos.y(), imu_state.pos.z(),
-                     imu_state.rot.x(), imu_state.rot.y(), imu_state.rot.z(), imu_state.rot.w(),
-                     tail->header.stamp.toSec()));
-#elif defined(USE_ROS2)
-    pbuffer.Push(Pose(imu_state.pos.x(), imu_state.pos.y(), imu_state.pos.z(),
-                     imu_state.rot.x(), imu_state.rot.y(), imu_state.rot.z(), imu_state.rot.w(),
-                     tail->header.stamp.sec + 1e-9 * tail->header.stamp.nanosec));
-#endif
+                     imu_state.rot.x(), imu_state.rot.y(), imu_state.rot.z(), imu_state.rot.w(), tail_time));
     angvel_last = angvel_avr - imu_state.bg;
     acc_s_last  = imu_state.rot * (acc_avr - imu_state.ba);
     for (int i = 0; i < 3; i++) acc_s_last[i] += imu_state.grav[i];
 
-#ifdef USE_ROS1
-    double &&offs_t = tail->header.stamp.toSec() - last_lidar_end_time_;
-#elif defined(USE_ROS2)
-    double &&offs_t = (tail->header.stamp.sec + 1e-9 * tail->header.stamp.nanosec) - last_lidar_end_time_;
-#endif
+  double offs_t = tail_time - last_lidar_end_time_;
     IMUpose.push_back(set_pose6d(offs_t, acc_s_last, angvel_last, imu_state.vel, imu_state.pos, imu_state.rot.toRotationMatrix()));
   }
 
   double note = pcl_end_time > imu_end_time ? 1.0 : -1.0;
   dt = note * (pcl_end_time - imu_end_time);
-  kf_state.predict(dt, Q, in);
+  {
+    const bool is_static = std::fabs(in.acc.norm() - G_m_s2) < zupt_acc_norm_threshold && in.gyro.norm() < zupt_gyro_threshold;
+    if (use_zupt && is_static)
+      estimator(kf_state, dt, in, Q, {zupt_updater::update});
+    else
+      estimator(kf_state, dt, in, Q);
+  }
 
   imu_state = kf_state.get_x();
   last_imu_ = meas.imu.back();

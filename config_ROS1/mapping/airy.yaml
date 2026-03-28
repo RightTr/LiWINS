@@ -23,6 +23,10 @@ mapping:
     extrinsic_R: [ 0.000076, -0.999999,  0.001261, # LiDAR rotation in the IMU coordinate frame
                 -0.999999, -0.000076,  0.001208,
                 -0.001208, -0.001261, -0.999999 ]
+    use_known_initial_attitude: false
+    initial_attitude: [ 1.0, 0.0, 0.0,  # Known initial attitude rotation matrix (3x3)
+                               0.0, 1.0, 0.0,  # Identity matrix by default
+                               0.0, 0.0, 1.0 ]
 
 # === DIFOP PACKET DECODE ===
 # Header frame: LiDAR
