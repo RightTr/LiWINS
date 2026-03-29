@@ -31,6 +31,13 @@ void LaserMapping::init()
     
     Lidar_T_wrt_IMU_ << VEC_FROM_ARRAY(ri->extrinT);
     Lidar_R_wrt_IMU_ << MAT_FROM_ARRAY(ri->extrinR);
+    if (ri->imu_flip_en)
+    {
+        // IMU frame inversion: coordinates in IMU frame should be transformed consistently.
+        Lidar_T_wrt_IMU_ = -Lidar_T_wrt_IMU_;
+        Lidar_R_wrt_IMU_ = -Lidar_R_wrt_IMU_;
+    }
+
     p_imu->set_extrinsic(Lidar_T_wrt_IMU_, Lidar_R_wrt_IMU_);
     p_imu->set_gyr_cov(V3D(ri->gyr_cov,   ri->gyr_cov,   ri->gyr_cov));
     p_imu->set_acc_cov(V3D(ri->acc_cov,   ri->acc_cov,   ri->acc_cov));

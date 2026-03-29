@@ -85,6 +85,7 @@ public:
   bool   extrinsic_est_en     = true;
   bool   use_zupt             = false;
   bool   pcd_save_en          = false;
+  bool   imu_flip_en          = false;
 
   int    NUM_MAX_ITERATIONS   = 4;
   int    pcd_save_interval    = -1;

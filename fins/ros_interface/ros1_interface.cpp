@@ -17,6 +17,7 @@ void ROS1_Interface::load_config()
     nh_.param<std::string>("reloc/reloc_topic",          reloc_topic,            "/reloc/manual");
     nh_.param<bool>("common/time_sync_en",               time_sync_en,           false);
     nh_.param<double>("common/time_offset_lidar_to_imu", time_diff_lidar_to_imu, 0.0);
+    nh_.param<bool>("common/imu_flip_en", imu_flip_en, false);
     nh_.param<double>("filter_size_corner",              filter_size_corner_min,  0.5);
     nh_.param<double>("filter_size_surf",                filter_size_surf_min,    0.5);
     nh_.param<double>("filter_size_map",                 filter_size_map_min,     0.5);
@@ -121,6 +122,16 @@ void ROS1_Interface::imu_cbk(const sensor_msgs::Imu::ConstPtr& msg_in)
 {
     publish_count++;
     sensor_msgs::ImuPtr msg(new sensor_msgs::Imu(*msg_in));
+
+    if (imu_flip_en)
+    {
+        msg->angular_velocity.x = -msg->angular_velocity.x;
+        msg->angular_velocity.y = -msg->angular_velocity.y;
+        msg->angular_velocity.z = -msg->angular_velocity.z;
+        msg->linear_acceleration.x = -msg->linear_acceleration.x;
+        msg->linear_acceleration.y = -msg->linear_acceleration.y;
+        msg->linear_acceleration.z = -msg->linear_acceleration.z;
+    }
 
     msg->header.stamp = ros::Time().fromSec(msg_in->header.stamp.toSec() - time_diff_lidar_to_imu);
     if (abs(timediff_lidar_wrt_imu_) > 0.1 && time_sync_en)

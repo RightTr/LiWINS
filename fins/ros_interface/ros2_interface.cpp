@@ -38,6 +38,7 @@ void ROS2_Interface::load_config()
 	reloc_topic            = node_->declare_parameter<std::string>("reloc.reloc_topic", "/reloc/manual");
 	time_sync_en           = node_->declare_parameter<bool>("common.time_sync_en", false);
 	time_diff_lidar_to_imu = node_->declare_parameter<double>("common.time_offset_lidar_to_imu", 0.0);
+	imu_flip_en            = node_->declare_parameter<bool>("common.imu_flip_en", false);
 
 	filter_size_corner_min = node_->declare_parameter<double>("filter_size_corner", 0.5);
 	filter_size_surf_min   = node_->declare_parameter<double>("filter_size_surf", 0.5);
@@ -171,6 +172,16 @@ void ROS2_Interface::imu_cbk(const sensor_msgs::msg::Imu::ConstSharedPtr msg_in)
 
 	auto msg = std::make_shared<sensor_msgs::msg::Imu>(*msg_in);
 	const double imu_stamp = rclcpp::Time(msg_in->header.stamp).seconds();
+
+	if (imu_flip_en)
+    {
+        msg->angular_velocity.x = -msg->angular_velocity.x;
+        msg->angular_velocity.y = -msg->angular_velocity.y;
+        msg->angular_velocity.z = -msg->angular_velocity.z;
+        msg->linear_acceleration.x = -msg->linear_acceleration.x;
+        msg->linear_acceleration.y = -msg->linear_acceleration.y;
+        msg->linear_acceleration.z = -msg->linear_acceleration.z;
+    }
 
 	double corrected_stamp = imu_stamp - time_diff_lidar_to_imu;
 	if (std::abs(timediff_lidar_wrt_imu_) > 0.1 && time_sync_en)
