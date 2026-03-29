@@ -62,14 +62,12 @@ void ROS2_Interface::load_config()
 	runtime_pos_log         = node_->declare_parameter<bool>("runtime_pos_log_enable", false);
 	extrinsic_est_en        = node_->declare_parameter<bool>("mapping.extrinsic_est_en", true);
 	use_zupt = node_->declare_parameter<bool>("mapping.use_zupt", false);
-	use_known_initial_attitude = node_->declare_parameter<bool>("mapping.use_known_initial_attitude", false);
 	pcd_save_en             = node_->declare_parameter<bool>("pcd_save.pcd_save_en", false);
 	pcd_save_interval       = node_->declare_parameter<int>("pcd_save.interval", -1);
 	odom_imu_frequency      = node_->declare_parameter<int>("publish.odom_imu_frequency", 100);
 
 	extrinT = node_->declare_parameter<std::vector<double>>("mapping.extrinsic_T", std::vector<double>());
 	extrinR = node_->declare_parameter<std::vector<double>>("mapping.extrinsic_R", std::vector<double>());
-	initial_attitude = node_->declare_parameter<std::vector<double>>("mapping.initial_attitude",std::vector<double>());
 
 	p_pre->lidar_type = lidar_type;
 }

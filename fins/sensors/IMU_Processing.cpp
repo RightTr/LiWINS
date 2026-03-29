@@ -120,17 +120,7 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 
     N ++;
   }
   state_ikfom init_state = kf_state.get_x();
-  if (use_known_initial_attitude)
-  {
-    const V3D gravity_world(0.0, 0.0, -G_m_s2);
-    init_state.rot = SO3(known_initial_rot);
-    init_state.grav = S2(gravity_world);
-    init_state.ba = mean_acc + known_initial_rot.transpose() * gravity_world;
-  }
-  else
-  {
-    init_state.grav = S2(-mean_acc / mean_acc.norm() * G_m_s2);
-  }
+  init_state.grav = S2(-mean_acc / mean_acc.norm() * G_m_s2);
   init_state.bg  = mean_gyr;
   init_state.offset_T_L_I = Lidar_T_wrt_IMU;
   init_state.offset_R_L_I = Lidar_R_wrt_IMU;
@@ -205,8 +195,9 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     Q.block<3, 3>(9, 9).diagonal() = cov_bias_acc;
 
     const bool is_static = std::fabs(acc_avr.norm() - G_m_s2) < zupt_acc_norm_threshold && angvel_avr.norm() < zupt_gyro_threshold;
-    if (use_zupt && is_static)
+    if (use_zupt && is_static) {
       estimator(kf_state, dt, in, Q, {zupt_updater::update});
+    }
     else
       estimator(kf_state, dt, in, Q);
 

@@ -38,8 +38,6 @@ void LaserMapping::init()
     p_imu->set_acc_bias_cov(V3D(ri->b_acc_cov, ri->b_acc_cov, ri->b_acc_cov));
     p_imu->lidar_type = ri->lidar_type;
     p_imu->set_use_zupt(ri->use_zupt);
-    known_initial_rot << MAT_FROM_ARRAY(ri->initial_attitude);
-    p_imu->set_use_known_initial_attitude(ri->use_known_initial_attitude, known_initial_rot);
     p_imu->set_zupt_thresholds(ri->zupt_acc_norm_threshold, ri->zupt_gyro_threshold);
 
     g_laser_mapping = this;

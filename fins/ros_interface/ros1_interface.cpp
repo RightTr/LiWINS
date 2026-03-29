@@ -39,12 +39,10 @@ void ROS1_Interface::load_config()
     nh_.param<bool>("runtime_pos_log_enable",            runtime_pos_log,        0);
     nh_.param<bool>("mapping/extrinsic_est_en",          extrinsic_est_en,       true);
     nh_.param<bool>("mapping/use_zupt", use_zupt, false);
-    nh_.param<bool>("mapping/use_known_initial_attitude", use_known_initial_attitude, false);
     nh_.param<bool>("pcd_save/pcd_save_en",              pcd_save_en,            false);
     nh_.param<int>("pcd_save/interval",                  pcd_save_interval,      -1);
     nh_.param<std::vector<double>>("mapping/extrinsic_T", extrinT,               std::vector<double>());
     nh_.param<std::vector<double>>("mapping/extrinsic_R", extrinR,               std::vector<double>());
-    nh_.param<std::vector<double>>("mapping/initial_attitude", initial_attitude, std::vector<double>());
     nh_.param<int>("publish/odom_imu_frequency",         odom_imu_frequency,     100);
     p_pre->lidar_type = lidar_type;
 }

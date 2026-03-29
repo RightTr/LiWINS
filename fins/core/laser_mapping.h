@@ -67,7 +67,7 @@ private:
     PointCloudXYZI::Ptr _featsArray_;
 
     // Map
-    PointMapBase<PointType>::Ptr point_map_{std::make_shared<OctVoxMap<PointType, float>>()};
+    PointMapBase<PointType>::Ptr point_map_{std::make_shared<KD_TREE<PointType>>()};
     pcl::VoxelGrid<PointType> downSizeFilterSurf_;
 
     // Algorithm state flags
@@ -92,7 +92,6 @@ private:
     // Extrinsics
     V3D Lidar_T_wrt_IMU_{Zero3d};
     M3D Lidar_R_wrt_IMU_{Eye3d};
-    M3D known_initial_rot{Eye3d};
     V3D euler_cur_;
     V3D position_last_{Zero3d};
     V3D XAxisPoint_body_{LIDAR_SP_LEN, 0.0, 0.0};

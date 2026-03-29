@@ -84,7 +84,6 @@ public:
   bool   runtime_pos_log      = false;
   bool   extrinsic_est_en     = true;
   bool   use_zupt             = false;
-  bool   use_known_initial_attitude = false;
   bool   pcd_save_en          = false;
 
   int    NUM_MAX_ITERATIONS   = 4;
@@ -114,7 +113,6 @@ public:
 
   std::vector<double> extrinT;
   std::vector<double> extrinR;
-  std::vector<double> initial_attitude;
 
   std::shared_ptr<Preprocess> p_pre = std::make_shared<Preprocess>();
   std::shared_ptr<ImuProcess> p_imu = std::make_shared<ImuProcess>();

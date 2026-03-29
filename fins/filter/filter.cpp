@@ -120,22 +120,18 @@ void update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state)
 	ekfom_data.h.block<3, 1>(0, 0) = -s.vel;
 	ekfom_data.R = MatrixXd::Identity(3, 3) * 1e-4;
 
-	const MatrixXd& H = ekfom_data.h_x;
-	const VectorXd& r = ekfom_data.h;
-	const MatrixXd& R = ekfom_data.R;
-
 	auto P = kf_state.get_P();
-	const MatrixXd K = P * H.transpose() * (H * P * H.transpose() + R).inverse();
+	const MatrixXd K = P * ekfom_data.h_x.transpose() * (ekfom_data.h_x * P * ekfom_data.h_x.transpose() + ekfom_data.R).inverse();
 	const Matrix<double, state_ikfom::DOF, state_ikfom::DOF> I =
 		Matrix<double, state_ikfom::DOF, state_ikfom::DOF>::Identity();
 
 	state_ikfom x = kf_state.get_x();
-	x.boxplus(Matrix<double, state_ikfom::DOF, 1>(K * r));
+	x.boxplus(Matrix<double, state_ikfom::DOF, 1>(K * ekfom_data.h));
 	kf_state.change_x(x);
 
-	const Matrix<double, state_ikfom::DOF, state_ikfom::DOF> KH = K * H;
+	const Matrix<double, state_ikfom::DOF, state_ikfom::DOF> KH = K * ekfom_data.h_x;
 	Matrix<double, state_ikfom::DOF, state_ikfom::DOF> P_new =
-		(I - KH) * P * (I - KH).transpose() + K * R * K.transpose();
+		(I - KH) * P * (I - KH).transpose() + K * ekfom_data.R * K.transpose();
 	kf_state.change_P(P_new);
 }
 } // namespace zupt_updater
