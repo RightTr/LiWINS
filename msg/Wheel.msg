@@ -1,0 +1,3 @@
+float64 timestamp
+float64 encoder1
+float64 encoder2

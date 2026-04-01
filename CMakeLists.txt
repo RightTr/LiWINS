@@ -89,6 +89,7 @@ if(USE_ROS1)
   add_message_files(
     FILES
     Pose6D.msg
+    Wheel.msg
   )
 
   generate_messages(
