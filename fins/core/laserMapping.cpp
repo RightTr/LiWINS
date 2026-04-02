@@ -111,9 +111,9 @@ void LaserMapping::run()
         // ---- First scan init ----------------------------------------------
         if (flg_first_scan_)
         {
-            first_lidar_time_              = Measures_.lidar_beg_time;
+            first_lidar_time_ = Measures_.lidar_beg_time;
             p_imu->first_lidar_time   = first_lidar_time_;
-            flg_first_scan_                = false;
+            flg_first_scan_ = false;
             continue;
         }
 

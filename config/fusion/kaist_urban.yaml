@@ -26,7 +26,7 @@ mapping:
 
 wheel:
     enable: false
-    type: 3 # 0: Wheel2DAng, 1: Wheel2DLin, 2: Wheel2DCen, 3: Wheel3DAng, 4: Wheel3DLin, 5: Wheel3DCen
+    wheel_type: 3 # 0: Wheel2DAng, 1: Wheel2DLin, 2: Wheel2DCen, 3: Wheel3DAng, 4: Wheel3DLin, 5: Wheel3DCen
     rl: 0.3
     rr: 0.3
     b: 1.5

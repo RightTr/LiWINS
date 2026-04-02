@@ -145,7 +145,7 @@ void load_config()
     rosparam_get("mapping/extrinsic_R", extrinR, std::vector<double>());
     
     rosparam_get("wheel/enable", wheel_en, false);
-    rosparam_get("wheel/type", wheel_type, 0);
+    rosparam_get("wheel/wheel_type", wheel_type, 0);
     rosparam_get("wheel/rl", wheel_rl, 1.0);
     rosparam_get("wheel/rr", wheel_rr, 1.0);
     rosparam_get("wheel/b", wheel_b, 1.0);
