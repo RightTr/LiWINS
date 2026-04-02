@@ -117,16 +117,17 @@ void LaserMapping::run()
             continue;
         }
 
-        // ---- IMU undistortion ---------------------------------------------
+        // ---- IMU undistortion and IMU propagation --------------------------------
         p_imu->Process(Measures_, kf_, feats_undistort_);
         state_point_ = kf_.get_x();
-        pos_lid_     = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
+        pos_lid_ = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
 
+        // wheel update 
         if (wheel_en && wheel_clone_ready_ && wheel_meas_ready)
         {
-            wheel_updater::update(kf_, *p_wheel, Wheel_R_wrt_IMU_, Wheel_T_wrt_IMU_);
+            wheel_updater::update(kf_, *p_wheel);
             state_point_ = kf_.get_x();
-            pos_lid_     = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
+            pos_lid_ = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
         }
 
         if (feats_undistort_->empty() || feats_undistort_ == nullptr) continue;

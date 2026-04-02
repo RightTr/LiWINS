@@ -102,9 +102,7 @@ namespace wheel_updater
     // True two-time update: jointly constrains cached clone pose and current pose.
     bool update(
         esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
-        const WheelProcess& wheel_process,
-        const M3D& wheel_rot_in_imu = Eye3d,
-        const V3D& wheel_pos_in_imu = Zero3d);
+        const WheelProcess& wheel_process);
 }
 
 // ===========================

@@ -167,9 +167,7 @@ void state_clone(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state)
 }
 
 bool update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
-            const WheelProcess& wheel_process,
-            const M3D& wheel_rot_in_imu,
-            const V3D& wheel_pos_in_imu)
+            const WheelProcess& wheel_process)
 {
     const int clone_rot_idx = MTK::getStartIdx(&state_ikfom::rot_last);
     const int clone_pos_idx = MTK::getStartIdx(&state_ikfom::pose_last);

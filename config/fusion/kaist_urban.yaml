@@ -1,7 +1,7 @@
 common:
     lid_topic:  "/ns1/velodyne_points"
     imu_topic:  "/imu/data_raw"
-    wheel_topic: "/joint_states"
+    wheel_topic: "/wheel"
     time_sync_en: false         # ONLY turn on when external time synchronization is really not possible
     time_offset_lidar_to_imu: 0.0 # Time offset between lidar and IMU calibrated by other algorithms, e.g. LI-Init (can be found in README).
                                 # This param will take effect no matter what time_sync_en is. So if the time offset is not known exactly, please set as 0.0
@@ -25,7 +25,7 @@ mapping:
                   -0.701954, -0.0136853, 0.712091 ]
 
 wheel:
-    enable: false
+    enable: true
     wheel_type: 3 # 0: Wheel2DAng, 1: Wheel2DLin, 2: Wheel2DCen, 3: Wheel3DAng, 4: Wheel3DLin, 5: Wheel3DCen
     rl: 0.3
     rr: 0.3
