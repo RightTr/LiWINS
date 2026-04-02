@@ -76,15 +76,6 @@ void WheelProcess::feed_measurement(const WheelMsg &data)
   t_hist.push_back(data.timestamp);
 }
 
-void WheelProcess::feed_measurement(double timestamp, double encoder1, double encoder2)
-{
-  WheelMsg data;
-  data.timestamp = timestamp;
-  data.encoder1 = encoder1;
-  data.encoder2 = encoder2;
-  feed_measurement(data);
-}
-
 bool WheelProcess::Process(double time0, double time1, WheelPreintegration *result)
 {
   std::vector<WheelMsg> data_vec;

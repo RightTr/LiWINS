@@ -23,11 +23,15 @@ void LaserMapping::init()
     
     Lidar_T_wrt_IMU_ << VEC_FROM_ARRAY(extrinT);
     Lidar_R_wrt_IMU_ << MAT_FROM_ARRAY(extrinR);
+    Wheel_T_wrt_IMU_ << VEC_FROM_ARRAY(wheel_extrinT);
+    Wheel_R_wrt_IMU_ << MAT_FROM_ARRAY(wheel_extrinR);
     if (imu_flip_en)
     {
         // IMU frame inversion: coordinates in IMU frame should be transformed consistently.
         Lidar_T_wrt_IMU_ = IMU_FLIP_R * Lidar_T_wrt_IMU_;
         Lidar_R_wrt_IMU_ = IMU_FLIP_R * Lidar_R_wrt_IMU_;
+        Wheel_T_wrt_IMU_ = IMU_FLIP_R * Wheel_T_wrt_IMU_;
+        Wheel_R_wrt_IMU_ = IMU_FLIP_R * Wheel_R_wrt_IMU_;
     }
 
     p_imu->set_extrinsic(Lidar_T_wrt_IMU_, Lidar_R_wrt_IMU_);
@@ -38,8 +42,8 @@ void LaserMapping::init()
     p_imu->lidar_type = lidar_type;
 
     g_laser_mapping = this;
-    double epsi[23] = {0.001};
-    fill(epsi, epsi + 23, 0.001);
+    double epsi[state_ikfom::DOF];
+    fill(epsi, epsi + state_ikfom::DOF, 0.001);
     // Always bind one callback; choose lidar/zupt dynamically in h_share_model_impl.
     kf_.init_dyn_share(get_f, df_dx, df_dw, h_share_model_cb, NUM_MAX_ITERATIONS, epsi);
 
@@ -85,6 +89,7 @@ void LaserMapping::run()
             point_map_->Clear();
             relocalize_flag.store(false);
             flg_first_scan_ = true;
+            wheel_clone_ready_ = false;
             continue;
         }
 
@@ -103,6 +108,13 @@ void LaserMapping::run()
         p_imu->Process(Measures_, kf_, feats_undistort_);
         state_point_ = kf_.get_x();
         pos_lid_     = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
+
+        if (wheel_en && wheel_clone_ready_ && p_wheel->Process(wheel_last_lidar_time_, lidar_end_time_))
+        {
+            wheel_updater::update(kf_, *p_wheel, Wheel_R_wrt_IMU_, Wheel_T_wrt_IMU_);
+            state_point_ = kf_.get_x();
+            pos_lid_     = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
+        }
 
         if (feats_undistort_->empty() || feats_undistort_ == nullptr) continue;
 
@@ -163,6 +175,16 @@ void LaserMapping::run()
             update_state_ikfom();
             correctPoses();
             publishSamMsg();
+        }
+
+        state_point_ = kf_.get_x();
+        pos_lid_     = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
+        if (wheel_en)
+        {
+            wheel_updater::state_clone(kf_);
+            state_point_ = kf_.get_x();
+            wheel_last_lidar_time_ = lidar_end_time_;
+            wheel_clone_ready_ = true;
         }
 
         // ---- Publish odometry ---------------------------------------------
@@ -245,6 +267,12 @@ bool LaserMapping::sync_packages(MeasureGroup& meas)
         if (imu_time > lidar_end_time_) break;
         meas.imu.push_back(imu_buffer.front());
         imu_buffer.pop_front();
+    }
+
+    while (!wheel_buffer.empty() && wheel_buffer.front()->timestamp <= lidar_end_time_)
+    {
+        p_wheel->feed_measurement(*wheel_buffer.front());
+        wheel_buffer.pop_front();
     }
 
     lidar_buffer.pop_front();

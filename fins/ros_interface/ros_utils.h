@@ -57,11 +57,14 @@ using QuaternionMsg = geometry_msgs::Quaternion;
 using PoseStampedMsgConstPtr = geometry_msgs::PoseStamped::ConstPtr;
 using ImuMsgConstPtr = sensor_msgs::Imu::ConstPtr;
 using ImuMsgPtr = sensor_msgs::Imu::Ptr;
+using WheelMsgConstPtr = fins::Wheel::ConstPtr;
+using WheelMsgPtr = fins::Wheel::Ptr;
 using LivoxCustomMsgConstPtr = livox_ros_driver2::CustomMsg::ConstPtr;
 using LivoxCustomMsg = livox_ros_driver2::CustomMsg;
 using Pcl2MsgConstPtr = sensor_msgs::PointCloud2::ConstPtr;
 using LivoxMsg = PointCloud2Msg;  // ROS1 Livox driver outputs PointCloud2
 using TransformStampedMsg = geometry_msgs::TransformStamped;
+using WheelSubscriber = ros::Subscriber;
 
 #elif defined(USE_ROS2)
 #include <rclcpp/rclcpp.hpp>
@@ -115,11 +118,13 @@ using QuaternionMsg = geometry_msgs::msg::Quaternion;
 using PoseStampedMsgConstPtr = geometry_msgs::msg::PoseStamped::ConstPtr;
 using ImuMsgConstPtr = sensor_msgs::msg::Imu::ConstPtr;
 using ImuMsgPtr = sensor_msgs::msg::Imu::Ptr;
+using WheelMsgConstPtr = fins::msg::Wheel::ConstSharedPtr;
 using LivoxCustomMsgConstPtr = livox_ros_driver2::msg::CustomMsg::ConstPtr;
 using LivoxCustomMsg = livox_ros_driver2::msg::CustomMsg;
 using Pcl2MsgConstPtr = sensor_msgs::msg::PointCloud2::ConstPtr;
 using LivoxMsg = livox_ros_driver2::msg::CustomMsg;  // ROS2 Livox driver outputs CustomMsg
 using TransformStampedMsg = geometry_msgs::msg::TransformStamped;
+using WheelSubscriber = rclcpp::Subscription<fins::msg::Wheel>::SharedPtr;
 
 #endif
 

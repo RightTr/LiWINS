@@ -1,4 +1,5 @@
 #include "filter.h"
+#include "sensors/wheel_Processing.h"
 
 // ===========================
 // IMU ESTIMATOR IMPLEMENTATIONS
@@ -15,9 +16,9 @@ MTK::get_cov<process_noise_ikfom>::type process_noise_cov()
 	return cov;
 }
 
-Eigen::Matrix<double, 24, 1> get_f(state_ikfom &s, const input_ikfom &in)
+Eigen::Matrix<double, state_ikfom::DIM, 1> get_f(state_ikfom &s, const input_ikfom &in)
 {
-	Eigen::Matrix<double, 24, 1> res = Eigen::Matrix<double, 24, 1>::Zero();
+	Eigen::Matrix<double, state_ikfom::DIM, 1> res = Eigen::Matrix<double, state_ikfom::DIM, 1>::Zero();
 	vect3 omega;
 	in.gyro.boxminus(omega, s.bg);
 	vect3 a_inertial = s.rot * (in.acc-s.ba);
@@ -29,9 +30,10 @@ Eigen::Matrix<double, 24, 1> get_f(state_ikfom &s, const input_ikfom &in)
 	return res;
 }
 
-Eigen::Matrix<double, 24, 23> df_dx(state_ikfom &s, const input_ikfom &in)
+Eigen::Matrix<double, state_ikfom::DIM, state_ikfom::DOF> df_dx(state_ikfom &s, const input_ikfom &in)
 {
-	Eigen::Matrix<double, 24, 23> cov = Eigen::Matrix<double, 24, 23>::Zero();
+	Eigen::Matrix<double, state_ikfom::DIM, state_ikfom::DOF> cov =
+		Eigen::Matrix<double, state_ikfom::DIM, state_ikfom::DOF>::Zero();
 	cov.template block<3, 3>(0, 12) = Eigen::Matrix3d::Identity();
 	vect3 acc_;
 	in.acc.boxminus(acc_, s.ba);
@@ -47,9 +49,9 @@ Eigen::Matrix<double, 24, 23> df_dx(state_ikfom &s, const input_ikfom &in)
 	return cov;
 }
 
-Eigen::Matrix<double, 24, 12> df_dw(state_ikfom &s, const input_ikfom &in)
+Eigen::Matrix<double, state_ikfom::DIM, 12> df_dw(state_ikfom &s, const input_ikfom &in)
 {
-	Eigen::Matrix<double, 24, 12> cov = Eigen::Matrix<double, 24, 12>::Zero();
+	Eigen::Matrix<double, state_ikfom::DIM, 12> cov = Eigen::Matrix<double, state_ikfom::DIM, 12>::Zero();
 	cov.template block<3, 3>(12, 3) = -s.rot.toRotationMatrix();
 	cov.template block<3, 3>(3, 0) = -Eigen::Matrix3d::Identity();
 	cov.template block<3, 3>(15, 6) = Eigen::Matrix3d::Identity();
@@ -140,6 +142,88 @@ void update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state)
 // WHEEL UPDATER FUNCTIONS
 // ===========================
 
+namespace wheel_updater
+{
+void state_clone(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state)
+{
+    state_ikfom x = kf_state.get_x();
+    x.pose_last = x.pos;
+    x.rot_last = x.rot;
+    kf_state.change_x(x);
+
+    auto P_old = kf_state.get_P();
+    auto P_new = P_old;
+    const int pos_idx = MTK::getStartIdx(&state_ikfom::pos);
+    const int rot_idx = MTK::getStartIdx(&state_ikfom::rot);
+    const int clone_pos_idx = MTK::getStartIdx(&state_ikfom::pose_last);
+    const int clone_rot_idx = MTK::getStartIdx(&state_ikfom::rot_last);
+
+    P_new.block<3, state_ikfom::DOF>(clone_pos_idx, 0) = P_old.block<3, state_ikfom::DOF>(pos_idx, 0);
+    P_new.block<state_ikfom::DOF, 3>(0, clone_pos_idx) = P_old.block<state_ikfom::DOF, 3>(0, pos_idx);
+    P_new.block<3, state_ikfom::DOF>(clone_rot_idx, 0) = P_old.block<3, state_ikfom::DOF>(rot_idx, 0);
+    P_new.block<state_ikfom::DOF, 3>(0, clone_rot_idx) = P_old.block<state_ikfom::DOF, 3>(0, rot_idx);
+
+    kf_state.change_P(P_new);
+}
+
+bool update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
+            const WheelProcess& wheel_process,
+            const M3D& wheel_rot_in_imu,
+            const V3D& wheel_pos_in_imu)
+{
+    const int clone_rot_idx = MTK::getStartIdx(&state_ikfom::rot_last);
+    const int clone_pos_idx = MTK::getStartIdx(&state_ikfom::pose_last);
+    const int rot_idx = MTK::getStartIdx(&state_ikfom::rot);
+    const int pos_idx = MTK::getStartIdx(&state_ikfom::pos);
+
+    const state_ikfom& curr_state = kf_state.get_x();
+    WheelPoseState pose0;
+    pose0.rot = curr_state.rot_last.toRotationMatrix();
+    pose0.pos = curr_state.pose_last;
+    pose0.rot_fej = pose0.rot;
+    pose0.pos_fej = pose0.pos;
+
+    WheelPoseState pose1;
+    pose1.rot = curr_state.rot.toRotationMatrix();
+    pose1.pos = curr_state.pos;
+    pose1.rot_fej = pose1.rot;
+    pose1.pos_fej = pose1.pos;
+
+    WheelLinearizationResult wheel_linearization;
+    if (!wheel_process.ComputeLinearSystem(pose0, pose1, wheel_rot_in_imu, wheel_pos_in_imu, wheel_linearization))
+        return false;
+    if (wheel_linearization.H.cols() != 12)
+        return false;
+
+    const bool is_3d = wheel_process.type == Wheel3DAng || wheel_process.type == Wheel3DLin || wheel_process.type == Wheel3DCen;
+    MatrixXd wheel_cov = is_3d ? MatrixXd(wheel_process.latest_result().Cov_3D) : MatrixXd(wheel_process.latest_result().Cov_2D);
+    if (wheel_cov.rows() != wheel_linearization.res.rows() || wheel_cov.cols() != wheel_linearization.res.rows())
+        return false;
+
+    MatrixXd H = MatrixXd::Zero(wheel_linearization.H.rows(), state_ikfom::DOF);
+    H.block(0, clone_rot_idx, wheel_linearization.H.rows(), 3) = wheel_linearization.H.block(0, 0, wheel_linearization.H.rows(), 3);
+    H.block(0, clone_pos_idx, wheel_linearization.H.rows(), 3) = wheel_linearization.H.block(0, 3, wheel_linearization.H.rows(), 3);
+    H.block(0, rot_idx, wheel_linearization.H.rows(), 3) = wheel_linearization.H.block(0, 6, wheel_linearization.H.rows(), 3);
+    H.block(0, pos_idx, wheel_linearization.H.rows(), 3) = wheel_linearization.H.block(0, 9, wheel_linearization.H.rows(), 3);
+
+    auto P = kf_state.get_P();
+    const MatrixXd S = H * P * H.transpose() + wheel_cov;
+    const MatrixXd K = P * H.transpose() * S.inverse();
+    const Matrix<double, state_ikfom::DOF, state_ikfom::DOF> I =
+        Matrix<double, state_ikfom::DOF, state_ikfom::DOF>::Identity();
+
+    state_ikfom x = curr_state;
+    const Matrix<double, state_ikfom::DOF, 1> dx = K * wheel_linearization.res;
+    x.boxplus(dx);
+    kf_state.change_x(x);
+
+    const Matrix<double, state_ikfom::DOF, state_ikfom::DOF> KH = K * H;
+    Matrix<double, state_ikfom::DOF, state_ikfom::DOF> P_new =
+        (I - KH) * P * (I - KH).transpose() + K * wheel_cov * K.transpose();
+    kf_state.change_P(P_new);
+    return true;
+}
+} // namespace wheel_updater
 
 // ===========================
 // LIDAR UPDATER IMPLEMENTATION

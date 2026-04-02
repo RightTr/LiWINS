@@ -5,8 +5,10 @@ std::condition_variable sig_buffer;
 std::deque<double>               time_buffer;
 std::deque<PointCloudXYZI::Ptr>  lidar_buffer;
 std::deque<ImuMsgConstPtr>       imu_buffer;
+std::deque<WheelMsgConstPtr>     wheel_buffer;
 double  last_timestamp_lidar;
 double  last_timestamp_imu = -1.0;
+double  last_timestamp_wheel = -1.0;
 int     scan_count;
 int     publish_count;
 
@@ -27,11 +29,13 @@ bool   runtime_pos_log;
 bool   extrinsic_est_en;
 bool   pcd_save_en;
 bool   imu_flip_en;
+bool   wheel_en;
 
 int    NUM_MAX_ITERATIONS;
 int    pcd_save_interval;
 int    odom_imu_frequency = 100;
 int    lidar_type;
+int    wheel_type;
 
 float  DET_RANGE;
 
@@ -51,13 +55,25 @@ double zupt_acc_norm_threshold = 0.30;
 std::string map_file_path;
 std::string lid_topic;
 std::string imu_topic;
+std::string wheel_topic;
 std::string reloc_topic;
 
 std::vector<double> extrinT;
 std::vector<double> extrinR;
+std::vector<double> wheel_extrinT;
+std::vector<double> wheel_extrinR;
 
 std::shared_ptr<Preprocess> p_pre = std::make_shared<Preprocess>();
 std::shared_ptr<ImuProcess> p_imu = std::make_shared<ImuProcess>();
+std::shared_ptr<WheelProcess> p_wheel = std::make_shared<WheelProcess>();
+
+double wheel_rl = 1.0;
+double wheel_rr = 1.0;
+double wheel_b = 1.0;
+double wheel_noise_w = 0.02;
+double wheel_noise_v = 0.02;
+double wheel_noise_p = 0.02;
+double wheel_max_history_time = 100.0;
 
 Pcl2Publisher pubLaserCloudFull;
 Pcl2Publisher pubLaserCloudFull_body;
@@ -71,6 +87,7 @@ Pcl2Subscriber sub_pcl_standard;
 LivoxSubscriber sub_pcl_livox;
 PoseStampedSubscriber sub_reloc;
 ImuSubscriber sub_imu;
+WheelSubscriber sub_wheel;
 
 OdometryMsg odomAftMapped;
 PathMsg path;
@@ -98,6 +115,7 @@ void load_config()
     rosparam_get("map_file_path", map_file_path, std::string(""));
     rosparam_get("common/lid_topic", lid_topic, std::string("/livox/lidar"));
     rosparam_get("common/imu_topic", imu_topic, std::string("/livox/imu"));
+    rosparam_get("common/wheel_topic", wheel_topic, std::string("/wheel"));
     rosparam_get("reloc/reloc_topic", reloc_topic, std::string("/reloc/manual"));
     rosparam_get("common/time_sync_en", time_sync_en, false);
     rosparam_get("common/time_offset_lidar_to_imu", time_diff_lidar_to_imu, 0.0);
@@ -123,16 +141,36 @@ void load_config()
     rosparam_get("mapping/extrinsic_est_en", extrinsic_est_en, true);
     rosparam_get("pcd_save/pcd_save_en", pcd_save_en, false);
     rosparam_get("pcd_save/interval", pcd_save_interval, -1);
-    rosparam_get("mapping/extrinsic_T", extrinT, std::vector<double>());
-    rosparam_get("mapping/extrinsic_R", extrinR, std::vector<double>());
+    rosparam_get("mapping/extrinsic_T", extrinT, std::vector<double>{0.0, 0.0, 0.0});
+    rosparam_get("mapping/extrinsic_R", extrinR, std::vector<double>{1.0, 0.0, 0.0,
+                                                                     0.0, 1.0, 0.0,
+                                                                     0.0, 0.0, 1.0});
+    rosparam_get("wheel/enable", wheel_en, false);
+    rosparam_get("wheel/type", wheel_type, 0);
+    rosparam_get("wheel/rl", wheel_rl, 1.0);
+    rosparam_get("wheel/rr", wheel_rr, 1.0);
+    rosparam_get("wheel/b", wheel_b, 1.0);
+    rosparam_get("wheel/noise_w", wheel_noise_w, 0.02);
+    rosparam_get("wheel/noise_v", wheel_noise_v, 0.02);
+    rosparam_get("wheel/noise_p", wheel_noise_p, 0.02);
+    rosparam_get("wheel/max_history_time", wheel_max_history_time, 100.0);
+    rosparam_get("wheel/extrinsic_T", wheel_extrinT, std::vector<double>{0.0, 0.0, 0.0});
+    rosparam_get("wheel/extrinsic_R", wheel_extrinR, std::vector<double>{1.0, 0.0, 0.0,
+                                                                          0.0, 1.0, 0.0,
+                                                                          0.0, 0.0, 1.0});
 
 	p_pre->lidar_type = lidar_type;
+    p_wheel->type = static_cast<WHEEL_TYPE>(std::max(0, std::min(5, wheel_type)));
+    p_wheel->set_intrinsic(wheel_rl, wheel_rr, wheel_b);
+    p_wheel->set_noise(wheel_noise_w, wheel_noise_v, wheel_noise_p);
+    p_wheel->set_history_time(wheel_max_history_time);
 }
 
 void livox_pcl_cbk(const LivoxCustomMsgConstPtr msg);
 void standard_pcl_cbk(const Pcl2MsgConstPtr msg);
 void reloc_cbk(const PoseStampedMsgConstPtr msg_in);
 void imu_cbk(const ImuMsgConstPtr msg_in);
+void wheel_cbk(const WheelMsgConstPtr msg_in);
 
 void register_pub_sub()
 {
@@ -145,6 +183,8 @@ void register_pub_sub()
     
     sub_reloc = create_subscriber<PoseStampedMsg>(reloc_topic, 10, reloc_cbk);
     sub_imu = create_subscriber<ImuMsg>(imu_topic, 200000, imu_cbk);
+    if (wheel_en)
+        sub_wheel = create_subscriber<WheelMsg>(wheel_topic, 200000, wheel_cbk);
     pubLaserCloudFull = create_publisher<PointCloud2Msg>("/cloud_registered", 100000);
     pubLaserCloudFull_body = create_publisher<PointCloud2Msg>("/cloud_registered_body", 100000);
     pubLaserCloudEffect = create_publisher<PointCloud2Msg>("/cloud_effected", 100000);
@@ -255,6 +295,24 @@ void imu_cbk(const ImuMsgConstPtr msg_in)
     last_timestamp_imu = timestamp;
 
     imu_buffer.push_back(msg);
+    mtx_buffer.unlock();
+    sig_buffer.notify_all();
+}
+
+void wheel_cbk(const WheelMsgConstPtr msg_in)
+{
+    const double timestamp = msg_in->timestamp;
+
+    mtx_buffer.lock();
+
+    if (timestamp < last_timestamp_wheel)
+    {
+        ROS_PRINT_WARN("wheel loop back, clear buffer");
+        wheel_buffer.clear();
+    }
+
+    last_timestamp_wheel = timestamp;
+    wheel_buffer.push_back(msg_in);
     mtx_buffer.unlock();
     sig_buffer.notify_all();
 }

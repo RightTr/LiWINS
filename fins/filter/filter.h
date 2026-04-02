@@ -1,8 +1,11 @@
 #ifndef ESTIMATOR_H
 #define ESTIMATOR_H
 
+#include <omp.h>
 #include <IKFoM_toolkit/esekfom/esekfom.hpp>
 #include "common_lib.h"
+
+class WheelProcess;
 
 // ===========================
 // IMU ESTIMATOR DEFINITIONS
@@ -23,6 +26,8 @@ MTK_BUILD_MANIFOLD(state_ikfom,
 ((vect3, bg))
 ((vect3, ba))
 ((S2, grav))
+((vect3, pose_last))
+((SO3, rot_last))
 );
 
 MTK_BUILD_MANIFOLD(input_ikfom,
@@ -42,9 +47,9 @@ MTK_BUILD_MANIFOLD(process_noise_ikfom,
 // ===========================
 
 MTK::get_cov<process_noise_ikfom>::type process_noise_cov();
-Eigen::Matrix<double, 24, 1> get_f(state_ikfom &s, const input_ikfom &in);
-Eigen::Matrix<double, 24, 23> df_dx(state_ikfom &s, const input_ikfom &in);
-Eigen::Matrix<double, 24, 12> df_dw(state_ikfom &s, const input_ikfom &in);
+Eigen::Matrix<double, state_ikfom::DIM, 1> get_f(state_ikfom &s, const input_ikfom &in);
+Eigen::Matrix<double, state_ikfom::DIM, state_ikfom::DOF> df_dx(state_ikfom &s, const input_ikfom &in);
+Eigen::Matrix<double, state_ikfom::DIM, 12> df_dw(state_ikfom &s, const input_ikfom &in);
 vect3 SO3ToEuler(const SO3 &orient);
 
 // ===========================
@@ -62,10 +67,11 @@ vect3 SO3ToEuler(const SO3 &orient);
  *   // IMU + ZUPT at IMU frequency
  *   estimator(kf, dt, in, Q, {zupt_updater::update});
  *
- *   // IMU + ZUPT + wheel at IMU frequency
+ *   // IMU + wheel dual-time constraint
+ *   // state_clone() must be called before predict so the clone stores the interval start pose.
+ *   wheel_updater::state_clone(kf);
  *   estimator(kf, dt, in, Q, {
- *       zupt_updater::update,
- *       [&](auto& k){ wheel_updater::update(k, wheel_vel); }
+ *       [&](auto& k){ wheel_updater::update(k, wheel_process, wheel_rot_in_imu, wheel_pos_in_imu); }
  *   });
  */
 using UpdateFn = std::function<void(esekfom::esekf<state_ikfom, 12, input_ikfom>&)>;
@@ -88,7 +94,18 @@ namespace zupt_updater  { void update(esekfom::esekf<state_ikfom, 12, input_ikfo
 // WHEEL ENCODER UPDATER FUNCTIONS
 // ===========================
 
-// namespace wheel_updater { void update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state); }
+namespace wheel_updater
+{
+    // Cache the current pose into the cloned previous-pose state before propagation.
+    void state_clone(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state);
+
+    // True two-time update: jointly constrains cached clone pose and current pose.
+    bool update(
+        esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
+        const WheelProcess& wheel_process,
+        const M3D& wheel_rot_in_imu = Eye3d,
+        const V3D& wheel_pos_in_imu = Zero3d);
+}
 
 // ===========================
 // LIDAR UPDATER FUNCTIONS

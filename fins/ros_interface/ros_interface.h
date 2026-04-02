@@ -3,6 +3,7 @@
 
 #include "ros_utils.h"
 #include "sensors/IMU_Processing.h"
+#include "sensors/wheel_Processing.h"
 #include "utils/trans_utils.h"
 #include "utils/reloc.h"
 #include "utils/common_lib.h"
@@ -20,10 +21,12 @@ extern bool   runtime_pos_log;
 extern bool   extrinsic_est_en;
 extern bool   pcd_save_en;
 extern bool   imu_flip_en;
+extern bool   wheel_en;
 
 extern int    NUM_MAX_ITERATIONS;
 extern int    pcd_save_interval;
 extern int    lidar_type;
+extern int    wheel_type;
 
 extern float  DET_RANGE;
 
@@ -42,9 +45,20 @@ extern double zupt_acc_norm_threshold;
 
 extern std::vector<double> extrinT;
 extern std::vector<double> extrinR;
+extern std::vector<double> wheel_extrinT;
+extern std::vector<double> wheel_extrinR;
 
 extern std::shared_ptr<Preprocess> p_pre;
 extern std::shared_ptr<ImuProcess> p_imu;
+extern std::shared_ptr<WheelProcess> p_wheel;
+
+extern double wheel_rl;
+extern double wheel_rr;
+extern double wheel_b;
+extern double wheel_noise_w;
+extern double wheel_noise_v;
+extern double wheel_noise_p;
+extern double wheel_max_history_time;
 
 extern std::atomic<bool>  relocalize_flag;
 
@@ -56,9 +70,11 @@ extern std::condition_variable sig_buffer;
 extern std::deque<double>               time_buffer;
 extern std::deque<PointCloudXYZI::Ptr>  lidar_buffer;
 extern std::deque<ImuMsgConstPtr>       imu_buffer;
+extern std::deque<WheelMsgConstPtr>     wheel_buffer;
 
 extern double  last_timestamp_lidar;
 extern double  last_timestamp_imu;
+extern double  last_timestamp_wheel;
 
 extern M3D IMU_FLIP_R;
 

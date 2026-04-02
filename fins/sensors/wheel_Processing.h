@@ -61,7 +61,6 @@ class WheelProcess
   void enable_calib_int(bool enable);
 
   void feed_measurement(const WheelMsg &data);
-  void feed_measurement(double timestamp, double encoder1, double encoder2);
 
   bool Process(double time0, double time1, WheelPreintegration *result = nullptr);
   bool select_wheel_data(double time0, double time1, std::vector<WheelMsg> &data_vec) const;

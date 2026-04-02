@@ -75,10 +75,14 @@ private:
     // Extrinsics
     V3D Lidar_T_wrt_IMU_{Zero3d};
     M3D Lidar_R_wrt_IMU_{Eye3d};
+    V3D Wheel_T_wrt_IMU_{Zero3d};
+    M3D Wheel_R_wrt_IMU_{Eye3d};
     V3D euler_cur_;
     V3D position_last_{Zero3d};
     V3D XAxisPoint_body_{LIDAR_SP_LEN, 0.0, 0.0};
     V3D XAxisPoint_world_{LIDAR_SP_LEN, 0.0, 0.0};
+    bool wheel_clone_ready_ = false;
+    double wheel_last_lidar_time_ = -1.0;
 
     // Local map box
     BoxPointType LocalMap_Points_;
