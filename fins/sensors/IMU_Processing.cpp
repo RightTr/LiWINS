@@ -2,16 +2,6 @@
 
 bool time_list(PointType &x, PointType &y) { return (x.curvature < y.curvature); }
 
-inline double get_ros_time(const ImuMsgConstPtr &msg)
-{
-#ifdef USE_ROS1
-  return msg->header.stamp.toSec();
-#elif defined(USE_ROS2)
-  return msg->header.stamp.sec + 1e-9 * msg->header.stamp.nanosec;
-#endif
-}
-
-
 ImuProcess::ImuProcess()
     : b_first_frame_(true), imu_need_init_(true), start_timestamp_(-1)
 {
@@ -141,8 +131,8 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
 {
   auto v_imu = meas.imu;
   v_imu.push_front(last_imu_);
-  const double imu_beg_time = get_ros_time(v_imu.front());
-  const double imu_end_time = get_ros_time(v_imu.back());
+  const double imu_beg_time = get_ros_time_sec(v_imu.front()->header.stamp);
+  const double imu_end_time = get_ros_time_sec(v_imu.back()->header.stamp);
 
   double pcl_beg_time = meas.lidar_beg_time;
   double pcl_end_time = meas.lidar_end_time;
@@ -168,8 +158,8 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   {
     auto &&head = *(it_imu);
     auto &&tail = *(it_imu + 1);
-    const double head_time = get_ros_time(head);
-    const double tail_time = get_ros_time(tail);
+    const double head_time = get_ros_time_sec(head->header.stamp);
+    const double tail_time = get_ros_time_sec(tail->header.stamp);
 
     if (head_time < last_lidar_end_time_) continue;
 

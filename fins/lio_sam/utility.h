@@ -4,6 +4,10 @@
 #include <string>
 #include <deque>
 #include <vector>
+#include <atomic>
+
+#include <pcl_conversions/pcl_conversions.h>
+#include "ros_interface/ros_utils.h"
 
 //Topics
 extern std::string gpsTopic;
@@ -42,47 +46,19 @@ extern float mappingICPSize;
 
 extern int ikdtreeSearchNeighborNum;
 
-#ifdef USE_ROS1
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <pcl_conversions/pcl_conversions.h>
+extern std::atomic<bool> flg_exit;
+
+void read_liosam_params();
 
 template<typename T>
-void publishCloud(const ros::Publisher& thisPub, const T& thisCloud, ros::Time thisStamp, std::string thisFrame)
+void publishCloud(Pcl2Publisher &thisPub, const T &thisCloud, TimeType thisStamp, const std::string &thisFrame)
 {
-    sensor_msgs::PointCloud2 tempCloud;
+    PointCloud2Msg tempCloud;
     pcl::toROSMsg(*thisCloud, tempCloud);
     tempCloud.header.stamp = thisStamp;
     tempCloud.header.frame_id = thisFrame;
-    if (thisPub.getNumSubscribers() != 0)
-        thisPub.publish(tempCloud);
+    if (ros_subscription_count(thisPub) != 0)
+        ros_publish(thisPub, tempCloud);
 }
-
-void read_liosam_params(ros::NodeHandle& nh);
-
-#elif defined(USE_ROS2)
-#include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <pcl_conversions/pcl_conversions.h>
-
-template<typename T>
-void publishCloud(
-    const rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr& thisPub,
-    const T& thisCloud,
-    rclcpp::Time thisStamp,
-    std::string thisFrame)
-{
-    if (!thisPub) return;
-    sensor_msgs::msg::PointCloud2 tempCloud;
-    pcl::toROSMsg(*thisCloud, tempCloud);
-    tempCloud.header.stamp = thisStamp;
-    tempCloud.header.frame_id = thisFrame;
-    if (thisPub->get_subscription_count() != 0)
-        thisPub->publish(tempCloud);
-}
-
-void read_liosam_params(const rclcpp::Node::SharedPtr& node);
-
-#endif
 
 #endif

@@ -9,25 +9,15 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
 
-#include "ros_interface/ros_interface_base.h"
+#include "ros_interface/ros_utils.h"
+#include "ros_interface/ros_interface.h"
 #include "filter/filter.h"
+#include "utils/trans_utils.h"
 #include "map/pointMapBase.hpp"
 #include "map/octvox/octvox.hpp"
 #include "map/ikd-Tree/ikd_Tree.hpp"
 #include "lio_sam/map_optimization.h"
 #include "lio_sam/utility.h"
-
-template<typename MsgPtr>
-inline double get_ros_time(const MsgPtr& msg)
-{
-#ifdef USE_ROS1
-    return msg->header.stamp.toSec();
-#elif defined(USE_ROS2)
-    return msg->header.stamp.sec + msg->header.stamp.nanosec * 1e-9;
-#else
-    return 0.0;
-#endif
-}
 
 #define INIT_TIME       (0.1)
 #define LASER_POINT_COV (0.001)
@@ -39,7 +29,6 @@ public:
     LaserMapping() = default;
     ~LaserMapping() = default;
 
-    void set_ros_interface(ROSInterfaceBase* ptr) { ros_interface_ = ptr; }
     void init();
     void run();
     void set_exit() { flg_exit_ = true; }
@@ -48,7 +37,6 @@ public:
     void h_share_model_impl(state_ikfom& s, esekfom::dyn_share_datastruct<double>& ekfom_data);
 
 private:
-    ROSInterfaceBase* ros_interface_ = nullptr;
 
     // EKF
     MeasureGroup Measures_;
@@ -115,14 +103,6 @@ private:
     bool sync_packages(MeasureGroup& meas);
     void lasermap_fov_segment();
     void map_incremental();
-
-    // Point transforms (depend on current state_point_)
-    void pointBodyToWorld(PointType const* pi, PointType* po);
-    template<typename T>
-    void pointBodyToWorld(const Eigen::Matrix<T,3,1>& pi, Eigen::Matrix<T,3,1>& po);
-    void pointBodyToWorld_ikfom(PointType const* pi, PointType* po, state_ikfom& s);
-    void RGBpointBodyToWorld(PointType const* pi, PointType* po);
-    void RGBpointBodyLidarToIMU(PointType const* pi, PointType* po);
 
     // Helpers to build ROS-agnostic data structs
     OdomData make_odom_data();

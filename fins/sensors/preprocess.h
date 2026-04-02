@@ -3,24 +3,7 @@
 
 #include <pcl_conversions/pcl_conversions.h>
 
-#ifdef USE_ROS1
-#include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <livox_ros_driver2/CustomMsg.h>
-#elif defined(USE_ROS2)
-#include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
-#include <livox_ros_driver2/msg/custom_msg.hpp>
-#endif
-
-
-#ifdef USE_ROS1
-using LivoxCustomMsgConstPtr = livox_ros_driver2::CustomMsg::ConstPtr;
-using Pcl2MsgConstPtr = sensor_msgs::PointCloud2::ConstPtr;
-#elif defined(USE_ROS2)
-using LivoxCustomMsgConstPtr = livox_ros_driver2::msg::CustomMsg::ConstPtr;
-using Pcl2MsgConstPtr = sensor_msgs::msg::PointCloud2::ConstPtr;
-#endif
+#include "ros_interface/ros_utils.h"
 
 using namespace std;
 

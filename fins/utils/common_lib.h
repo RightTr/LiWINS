@@ -6,34 +6,7 @@
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 
-
-#ifdef USE_ROS1
-#include <fins/Pose6D.h>
-#include <sensor_msgs/Imu.h>
-#include <nav_msgs/Odometry.h>
-#include <tf/transform_broadcaster.h>
-#include <eigen_conversions/eigen_msg.h>
-#elif defined(USE_ROS2)
-#include <fast_lio_interfaces/msg/pose6_d.hpp>
-#include <sensor_msgs/msg/imu.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_eigen/tf2_eigen.hpp>
-#endif
-
-#ifdef USE_ROS1
-using TimeType = ros::Time;
-using OdomMsg = nav_msgs::Odometry;
-using RateType = ros::Rate;
-using Pose6D = fins::Pose6D;
-using ImuMsgConstPtr = sensor_msgs::Imu::ConstPtr;
-#elif defined(USE_ROS2)
-using TimeType = rclcpp::Time;
-using OdomMsg = nav_msgs::msg::Odometry;
-using RateType = rclcpp::Rate;
-using Pose6D = fast_lio_interfaces::msg::Pose6D;
-using ImuMsgConstPtr = sensor_msgs::msg::Imu::ConstPtr;
-#endif
+#include "ros_interface/ros_utils.h"
 
 using namespace std;
 using namespace Eigen;
@@ -74,6 +47,19 @@ inline M3D Eye3d(M3D::Identity());
 inline M3F Eye3f(M3F::Identity());
 inline V3D Zero3d(0, 0, 0);
 inline V3F Zero3f(0, 0, 0);
+
+struct OdomData {
+    double x = 0, y = 0, z = 0;
+    double qx = 0, qy = 0, qz = 0, qw = 1;
+    double timestamp = 0;
+    double covariance[36] = {};
+};
+
+struct PoseData {
+    double x = 0, y = 0, z = 0;
+    double qx = 0, qy = 0, qz = 0, qw = 1;
+    double timestamp = 0;
+};
 
 inline float calc_dist(PointType p1, PointType p2)
 {

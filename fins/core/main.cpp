@@ -2,12 +2,12 @@
 
 #ifdef USE_ROS1
 #include <ros/ros.h>
-#include "ros_interface/ros1_interdace.h"
 #elif defined(USE_ROS2)
 #include <rclcpp/rclcpp.hpp>
-#include "ros_interface/ros2_interface.h"
 #endif
 
+#include "ros_interface/ros_utils.h"
+#include "ros_interface/ros_interface.h"
 #include "laser_mapping.h"
 
 static LaserMapping* g_mapping = nullptr;
@@ -21,35 +21,26 @@ int main(int argc, char** argv)
 {
 #ifdef USE_ROS1
     ros::init(argc, argv, "laserMapping");
-    ros::NodeHandle nh;
-
-    ROS1_Interface ri(nh);
-
-    LaserMapping mapping;
-    g_mapping = &mapping;
-
-    signal(SIGINT, sig_handle);
-
-    mapping.set_ros_interface(&ri);
-    mapping.init();
-    mapping.run();
-    
-    ros::shutdown();  // Ensure clean ROS shutdown
+    init_ros_node();
 #elif defined(USE_ROS2)
     rclcpp::init(argc, argv);
     auto node = rclcpp::Node::make_shared("laserMapping");
+    init_ros_node(node);
+#endif
 
-    ROS2_Interface ri(node);
+    load_config();
+    register_pub_sub();
 
     LaserMapping mapping;
     g_mapping = &mapping;
-
     signal(SIGINT, sig_handle);
 
-    mapping.set_ros_interface(&ri);
     mapping.init();
     mapping.run();
 
+#ifdef USE_ROS1
+    ros::shutdown();
+#elif defined(USE_ROS2)
     rclcpp::shutdown();
 #endif
 

@@ -15,10 +15,7 @@ static void h_share_model_cb(state_ikfom& s, esekfom::dyn_share_datastruct<doubl
 // ---------------------------------------------------------------------------
 void LaserMapping::init()
 {
-    auto* ri = ros_interface_;
-    auto* p_imu = ri->p_imu.get();
-
-    FOV_DEG_      = (ri->fov_deg + 10.0) > 179.9 ? 179.9 : (ri->fov_deg + 10.0);
+    FOV_DEG_      = (fov_deg + 10.0) > 179.9 ? 179.9 : (fov_deg + 10.0);
     HALF_FOV_COS_ = cos(FOV_DEG_ * 0.5 * PI_M / 180.0);
 
     _featsArray_.reset(new PointCloudXYZI());
@@ -27,11 +24,11 @@ void LaserMapping::init()
     memset(res_last_,            -1000.0f, sizeof(res_last_));
 
     downSizeFilterSurf_.setLeafSize(
-        ri->filter_size_surf_min, ri->filter_size_surf_min, ri->filter_size_surf_min);
+        filter_size_surf_min, filter_size_surf_min, filter_size_surf_min);
     
-    Lidar_T_wrt_IMU_ << VEC_FROM_ARRAY(ri->extrinT);
-    Lidar_R_wrt_IMU_ << MAT_FROM_ARRAY(ri->extrinR);
-    if (ri->imu_flip_en)
+    Lidar_T_wrt_IMU_ << VEC_FROM_ARRAY(extrinT);
+    Lidar_R_wrt_IMU_ << MAT_FROM_ARRAY(extrinR);
+    if (imu_flip_en)
     {
         // IMU frame inversion: coordinates in IMU frame should be transformed consistently.
         Lidar_T_wrt_IMU_ = -Lidar_T_wrt_IMU_;
@@ -39,21 +36,21 @@ void LaserMapping::init()
     }
 
     p_imu->set_extrinsic(Lidar_T_wrt_IMU_, Lidar_R_wrt_IMU_);
-    p_imu->set_gyr_cov(V3D(ri->gyr_cov,   ri->gyr_cov,   ri->gyr_cov));
-    p_imu->set_acc_cov(V3D(ri->acc_cov,   ri->acc_cov,   ri->acc_cov));
-    p_imu->set_gyr_bias_cov(V3D(ri->b_gyr_cov, ri->b_gyr_cov, ri->b_gyr_cov));
-    p_imu->set_acc_bias_cov(V3D(ri->b_acc_cov, ri->b_acc_cov, ri->b_acc_cov));
-    p_imu->lidar_type = ri->lidar_type;
-    p_imu->set_use_zupt(ri->use_zupt);
-    p_imu->set_zupt_thresholds(ri->zupt_acc_norm_threshold, ri->zupt_gyro_threshold);
+    p_imu->set_gyr_cov(V3D(gyr_cov,   gyr_cov,   gyr_cov));
+    p_imu->set_acc_cov(V3D(acc_cov,   acc_cov,   acc_cov));
+    p_imu->set_gyr_bias_cov(V3D(b_gyr_cov, b_gyr_cov, b_gyr_cov));
+    p_imu->set_acc_bias_cov(V3D(b_acc_cov, b_acc_cov, b_acc_cov));
+    p_imu->lidar_type = lidar_type;
+    p_imu->set_use_zupt(use_zupt);
+    p_imu->set_zupt_thresholds(zupt_acc_norm_threshold, zupt_gyro_threshold);
 
     g_laser_mapping = this;
     double epsi[23] = {0.001};
     fill(epsi, epsi + 23, 0.001);
     // Always bind one callback; choose lidar/zupt dynamically in h_share_model_impl.
-    kf_.init_dyn_share(get_f, df_dx, df_dw, h_share_model_cb, ri->NUM_MAX_ITERATIONS, epsi);
+    kf_.init_dyn_share(get_f, df_dx, df_dw, h_share_model_cb, NUM_MAX_ITERATIONS, epsi);
 
-    if (ri->sam_enable)
+    if (sam_enable)
         MapOptimizationInit();
 }
 
@@ -62,47 +59,45 @@ void LaserMapping::init()
 // ---------------------------------------------------------------------------
 void LaserMapping::run()
 {
-    auto* ri = ros_interface_;
-
     // High-frequency odometry publishing thread (driven by IMU rate)
     std::thread odomhighthread([&]() {
-        while (!flg_exit_ && ri->ros_ok()) {
-            Pose pose = ri->p_imu->pbuffer.Pop();
-            if (flg_exit_ || !ri->ros_ok()) break;
-            ri->publish_odometryhighfreq(pose);
+        while (!flg_exit_ && ros_ok()) {
+            Pose pose = p_imu->pbuffer.Pop();
+            if (flg_exit_ || !ros_ok()) break;
+            publish_odometryhighfreq(pose);
         }
     });
 
-    if (ri->sam_enable) {
+    if (sam_enable) {
         std::thread loopthread(&loopClosureThread);
         std::thread globalthread(&visualizeGlobalMapThread);
         loopthread.detach();
         globalthread.detach();
     }
 
-    while (ri->ros_ok())
+    while (ros_ok())
     {
         if (flg_exit_) break;
-        ri->spin_once();
+        spin_once();
 
         // ---- Relocalization -----------------------------------------------
-        if (ri->reloc_en && ri->relocalize_flag.load())
+        if (reloc_en && relocalize_flag.load())
         {
             feats_down_world_->clear();
-            ri->p_imu->Reset();
+            p_imu->Reset();
             state_ikfom state_point_reloc;
             {
-                std::lock_guard<std::mutex> lock(ri->mtx_reloc);
+                std::lock_guard<std::mutex> lock(mtx_reloc);
                 state_point_reloc.pos = Eigen::Vector3d(
-                    ri->reloc_state.x_, ri->reloc_state.y_, ri->reloc_state.z_);
+                    reloc_state.x_, reloc_state.y_, reloc_state.z_);
                 state_point_reloc.rot = Eigen::Quaterniond(
-                    ri->reloc_state.qw_, ri->reloc_state.qx_,
-                    ri->reloc_state.qy_, ri->reloc_state.qz_);
+                    reloc_state.qw_, reloc_state.qx_,
+                    reloc_state.qy_, reloc_state.qz_);
             }
             state_point_reloc.rot.normalize();
             kf_.reset(state_point_reloc);
             point_map_->Clear();
-            ri->relocalize_flag.store(false);
+            relocalize_flag.store(false);
             flg_first_scan_ = true;
             continue;
         }
@@ -113,13 +108,13 @@ void LaserMapping::run()
         if (flg_first_scan_)
         {
             first_lidar_time_              = Measures_.lidar_beg_time;
-            ri->p_imu->first_lidar_time   = first_lidar_time_;
+            p_imu->first_lidar_time   = first_lidar_time_;
             flg_first_scan_                = false;
             continue;
         }
 
         // ---- IMU undistortion ---------------------------------------------
-        ri->p_imu->Process(Measures_, kf_, feats_undistort_);
+        p_imu->Process(Measures_, kf_, feats_undistort_);
         state_point_ = kf_.get_x();
         pos_lid_     = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
 
@@ -144,7 +139,7 @@ void LaserMapping::run()
                 point_map_->SetConfig(mapConfig);
                 feats_down_world_->resize(feats_down_size_);
                 for (int i = 0; i < feats_down_size_; i++)
-                    pointBodyToWorld(&feats_down_body_->points[i], &feats_down_world_->points[i]);
+                    pointBodyToWorld(&feats_down_body_->points[i], &feats_down_world_->points[i], state_point_);
                 point_map_->Build(feats_down_world_->points);
             }
             continue;
@@ -155,7 +150,7 @@ void LaserMapping::run()
         normvec_->resize(feats_down_size_);
         feats_down_world_->resize(feats_down_size_);
 
-        if (ri->feature_pub_en)
+        if (feature_pub_en)
         {
             PointVector().swap(point_map_->PCL_Storage);
             point_map_->GetMap(point_map_->PCL_Storage);
@@ -174,7 +169,7 @@ void LaserMapping::run()
         pos_lid_     = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
 
         // ---- LIO-SAM backend (optional) -----------------------------------
-        if (ri->sam_enable)
+        if (sam_enable)
         {
             getCurrPose(state_point_);
             getCurrOffset(state_point_);
@@ -185,49 +180,34 @@ void LaserMapping::run()
         }
 
         // ---- Publish odometry ---------------------------------------------
-        ri->publish_odometry(make_odom_data(), lidar_end_time_);
+        publish_odometry(make_odom_data(), lidar_end_time_);
 
         // ---- Map update ---------------------------------------------------
         map_incremental();
 
         // ---- Publish path -------------------------------------------------
-        if (ri->path_en)
-            ri->publish_path(make_pose_data(), lidar_end_time_);
+        if (path_en)
+            publish_path(make_pose_data(), lidar_end_time_);
 
         // ---- Publish world frame cloud ------------------------------------
-        if (ri->scan_pub_en || ri->pcd_save_en)
+        if (scan_pub_en || pcd_save_en)
         {
-            PointCloudXYZI::Ptr src = ri->dense_pub_en ? feats_undistort_ : feats_down_body_;
-            int sz = src->points.size();
-            PointCloudXYZI::Ptr cloud_world(new PointCloudXYZI(sz, 1));
-            for (int i = 0; i < sz; i++)
-                RGBpointBodyToWorld(&src->points[i], &cloud_world->points[i]);
-            ri->publish_world_cloud(cloud_world, lidar_end_time_, "camera_init");
+            PointCloudXYZI::Ptr src = dense_pub_en ? feats_undistort_ : feats_down_body_;
+            publish_world_cloud(src, lidar_end_time_, "camera_init", state_point_);
         }
 
-        if (ri->scan_pub_en && ri->scan_body_pub_en)
-        {
-            int sz = feats_undistort_->points.size();
-            PointCloudXYZI::Ptr cloud_body(new PointCloudXYZI(sz, 1));
-            for (int i = 0; i < sz; i++)
-                RGBpointBodyLidarToIMU(&feats_undistort_->points[i], &cloud_body->points[i]);
-            ri->publish_body_cloud(cloud_body, lidar_end_time_, "body");
-        }
+        if (scan_pub_en && scan_body_pub_en)
+            publish_body_cloud(feats_undistort_, lidar_end_time_, "body", state_point_);
 
-        if (ri->effect_pub_en)
-        {
-            PointCloudXYZI::Ptr cloud_eff(new PointCloudXYZI(effct_feat_num_, 1));
-            for (int i = 0; i < effct_feat_num_; i++)
-                RGBpointBodyToWorld(&laserCloudOri_->points[i], &cloud_eff->points[i]);
-            ri->publish_effect_cloud(cloud_eff, lidar_end_time_, "camera_init");
-        }
+        if (effect_pub_en)
+            publish_effect_cloud(laserCloudOri_, lidar_end_time_, "camera_init", state_point_);
 
-        if (ri->feature_pub_en)
-            ri->publish_map_cloud(featsFromMap_, lidar_end_time_, "camera_init");
+        if (feature_pub_en)
+            publish_map_cloud(featsFromMap_, lidar_end_time_, "camera_init");
     }
 
     // Wake up the blocked Pop() so odomhighthread can exit cleanly
-    ri->p_imu->pbuffer.Push(Pose{});
+    p_imu->pbuffer.Push(Pose{});
     odomhighthread.join();
 }
 
@@ -236,14 +216,12 @@ void LaserMapping::run()
 // ---------------------------------------------------------------------------
 bool LaserMapping::sync_packages(MeasureGroup& meas)
 {
-    auto* ri = ros_interface_;
-
-    if (ri->lidar_buffer.empty() || ri->imu_buffer.empty()) return false;
+    if (lidar_buffer.empty() || imu_buffer.empty()) return false;
 
     if (!lidar_pushed_)
     {
-        meas.lidar          = ri->lidar_buffer.front();
-        meas.lidar_beg_time = ri->time_buffer.front();
+        meas.lidar          = lidar_buffer.front();
+        meas.lidar_beg_time = time_buffer.front();
 
         if (meas.lidar->points.size() <= 1)
         {
@@ -260,28 +238,28 @@ bool LaserMapping::sync_packages(MeasureGroup& meas)
             lidar_mean_scantime_ += (meas.lidar->points.back().curvature / double(1000) - lidar_mean_scantime_) / scan_num_;
         }
 
-        if (ri->lidar_type == MARSIM)
+        if (lidar_type == MARSIM)
             lidar_end_time_ = meas.lidar_beg_time;
 
         meas.lidar_end_time = lidar_end_time_;
         lidar_pushed_       = true;
     }
 
-    if (ri->last_timestamp_imu < lidar_end_time_) return false;
+    if (last_timestamp_imu < lidar_end_time_) return false;
 
-    double imu_time = get_ros_time(ri->imu_buffer.front());
+    double imu_time = get_ros_time_sec(imu_buffer.front()->header.stamp);
 
     meas.imu.clear();
-    while (!ri->imu_buffer.empty() && (imu_time < lidar_end_time_))
+    while (!imu_buffer.empty() && (imu_time < lidar_end_time_))
     {
-        imu_time = get_ros_time(ri->imu_buffer.front());
+        imu_time = get_ros_time_sec(imu_buffer.front()->header.stamp);
         if (imu_time > lidar_end_time_) break;
-        meas.imu.push_back(ri->imu_buffer.front());
-        ri->imu_buffer.pop_front();
+        meas.imu.push_back(imu_buffer.front());
+        imu_buffer.pop_front();
     }
 
-    ri->lidar_buffer.pop_front();
-    ri->time_buffer.pop_front();
+    lidar_buffer.pop_front();
+    time_buffer.pop_front();
     lidar_pushed_ = false;
     setLaserCurTime(lidar_end_time_);
     return true;
@@ -292,19 +270,18 @@ bool LaserMapping::sync_packages(MeasureGroup& meas)
 // ---------------------------------------------------------------------------
 void LaserMapping::lasermap_fov_segment()
 {
-    auto* ri = ros_interface_;
     constexpr float MOV_THRESHOLD = 1.5f;
 
     cub_needrm_.clear();
-    pointBodyToWorld(XAxisPoint_body_, XAxisPoint_world_);
+    pointBodyToWorld(XAxisPoint_body_, XAxisPoint_world_, state_point_);
     V3D pos_LiD = pos_lid_;
 
     if (!Localmap_Initialized_)
     {
         for (int i = 0; i < 3; i++)
         {
-            LocalMap_Points_.vertex_min[i] = pos_LiD(i) - ri->cube_len / 2.0;
-            LocalMap_Points_.vertex_max[i] = pos_LiD(i) + ri->cube_len / 2.0;
+            LocalMap_Points_.vertex_min[i] = pos_LiD(i) - cube_len / 2.0;
+            LocalMap_Points_.vertex_max[i] = pos_LiD(i) + cube_len / 2.0;
         }
         Localmap_Initialized_ = true;
         return;
@@ -316,28 +293,28 @@ void LaserMapping::lasermap_fov_segment()
     {
         dist_to_map_edge[i][0] = fabs(pos_LiD(i) - LocalMap_Points_.vertex_min[i]);
         dist_to_map_edge[i][1] = fabs(pos_LiD(i) - LocalMap_Points_.vertex_max[i]);
-        if (dist_to_map_edge[i][0] <= MOV_THRESHOLD * ri->DET_RANGE ||
-            dist_to_map_edge[i][1] <= MOV_THRESHOLD * ri->DET_RANGE)
+        if (dist_to_map_edge[i][0] <= MOV_THRESHOLD * DET_RANGE ||
+            dist_to_map_edge[i][1] <= MOV_THRESHOLD * DET_RANGE)
             need_move = true;
     }
     if (!need_move) return;
 
     BoxPointType New_LocalMap_Points = LocalMap_Points_;
     float mov_dist = std::max(
-        (ri->cube_len - 2.0 * MOV_THRESHOLD * ri->DET_RANGE) * 0.5 * 0.9,
-        double(ri->DET_RANGE * (MOV_THRESHOLD - 1)));
+        (cube_len - 2.0 * MOV_THRESHOLD * DET_RANGE) * 0.5 * 0.9,
+        double(DET_RANGE * (MOV_THRESHOLD - 1)));
 
     for (int i = 0; i < 3; i++)
     {
         BoxPointType tmp_boxpoints = LocalMap_Points_;
-        if (dist_to_map_edge[i][0] <= MOV_THRESHOLD * ri->DET_RANGE)
+        if (dist_to_map_edge[i][0] <= MOV_THRESHOLD * DET_RANGE)
         {
             New_LocalMap_Points.vertex_max[i] -= mov_dist;
             New_LocalMap_Points.vertex_min[i] -= mov_dist;
             tmp_boxpoints.vertex_min[i]        = LocalMap_Points_.vertex_max[i] - mov_dist;
             cub_needrm_.push_back(tmp_boxpoints);
         }
-        else if (dist_to_map_edge[i][1] <= MOV_THRESHOLD * ri->DET_RANGE)
+        else if (dist_to_map_edge[i][1] <= MOV_THRESHOLD * DET_RANGE)
         {
             New_LocalMap_Points.vertex_max[i] += mov_dist;
             New_LocalMap_Points.vertex_min[i] += mov_dist;
@@ -356,8 +333,6 @@ void LaserMapping::lasermap_fov_segment()
 // ---------------------------------------------------------------------------
 void LaserMapping::map_incremental()
 {
-    const double fsz = ros_interface_->filter_size_map_min;
-
     PointVector PointToAdd;
     PointVector PointNoNeedDownsample;
     PointToAdd.reserve(feats_down_size_);
@@ -365,20 +340,20 @@ void LaserMapping::map_incremental()
 
     for (int i = 0; i < feats_down_size_; i++)
     {
-        pointBodyToWorld(&feats_down_body_->points[i], &feats_down_world_->points[i]);
+        pointBodyToWorld(&feats_down_body_->points[i], &feats_down_world_->points[i], state_point_);
 
         if (!Nearest_Points_[i].empty() && flg_EKF_inited_)
         {
             const PointVector& points_near = Nearest_Points_[i];
             PointType mid_point;
-            mid_point.x = floor(feats_down_world_->points[i].x / fsz) * fsz + 0.5 * fsz;
-            mid_point.y = floor(feats_down_world_->points[i].y / fsz) * fsz + 0.5 * fsz;
-            mid_point.z = floor(feats_down_world_->points[i].z / fsz) * fsz + 0.5 * fsz;
+            mid_point.x = floor(feats_down_world_->points[i].x / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
+            mid_point.y = floor(feats_down_world_->points[i].y / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
+            mid_point.z = floor(feats_down_world_->points[i].z / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
             float dist  = calc_dist(feats_down_world_->points[i], mid_point);
 
-            if (fabs(points_near[0].x - mid_point.x) > 0.5 * fsz &&
-                fabs(points_near[0].y - mid_point.y) > 0.5 * fsz &&
-                fabs(points_near[0].z - mid_point.z) > 0.5 * fsz)
+            if (fabs(points_near[0].x - mid_point.x) > 0.5 * filter_size_map_min &&
+                fabs(points_near[0].y - mid_point.y) > 0.5 * filter_size_map_min &&
+                fabs(points_near[0].z - mid_point.z) > 0.5 * filter_size_map_min)
             {
                 PointNoNeedDownsample.push_back(feats_down_world_->points[i]);
                 continue;
@@ -486,64 +461,7 @@ void LaserMapping::h_share_model_impl(state_ikfom& s,
 
     lidar_updater::build_measurement_model(
         s, laserCloudOri_, corr_normvect_, effct_feat_num_,
-        ros_interface_->extrinsic_est_en, ekfom_data);
-}
-
-// ---------------------------------------------------------------------------
-// Point transforms
-// ---------------------------------------------------------------------------
-void LaserMapping::pointBodyToWorld(PointType const* pi, PointType* po)
-{
-    V3D p_body(pi->x, pi->y, pi->z);
-    V3D p_global(state_point_.rot * (state_point_.offset_R_L_I * p_body +
-                                     state_point_.offset_T_L_I) + state_point_.pos);
-    po->x         = p_global(0);
-    po->y         = p_global(1);
-    po->z         = p_global(2);
-    po->intensity = pi->intensity;
-}
-
-template<typename T>
-void LaserMapping::pointBodyToWorld(const Eigen::Matrix<T, 3, 1>& pi,
-                                    Eigen::Matrix<T, 3, 1>&       po)
-{
-    V3D p_body(pi[0], pi[1], pi[2]);
-    V3D p_global(state_point_.rot * (state_point_.offset_R_L_I * p_body +
-                                     state_point_.offset_T_L_I) + state_point_.pos);
-    po[0] = p_global(0);
-    po[1] = p_global(1);
-    po[2] = p_global(2);
-}
-
-void LaserMapping::pointBodyToWorld_ikfom(PointType const* pi, PointType* po, state_ikfom& s)
-{
-    V3D p_body(pi->x, pi->y, pi->z);
-    V3D p_global(s.rot * (s.offset_R_L_I * p_body + s.offset_T_L_I) + s.pos);
-    po->x         = p_global(0);
-    po->y         = p_global(1);
-    po->z         = p_global(2);
-    po->intensity = pi->intensity;
-}
-
-void LaserMapping::RGBpointBodyToWorld(PointType const* pi, PointType* po)
-{
-    V3D p_body(pi->x, pi->y, pi->z);
-    V3D p_global(state_point_.rot * (state_point_.offset_R_L_I * p_body +
-                                     state_point_.offset_T_L_I) + state_point_.pos);
-    po->x         = p_global(0);
-    po->y         = p_global(1);
-    po->z         = p_global(2);
-    po->intensity = pi->intensity;
-}
-
-void LaserMapping::RGBpointBodyLidarToIMU(PointType const* pi, PointType* po)
-{
-    V3D p_body_lidar(pi->x, pi->y, pi->z);
-    V3D p_body_imu(state_point_.offset_R_L_I * p_body_lidar + state_point_.offset_T_L_I);
-    po->x         = p_body_imu(0);
-    po->y         = p_body_imu(1);
-    po->z         = p_body_imu(2);
-    po->intensity = pi->intensity;
+        extrinsic_est_en, ekfom_data);
 }
 
 // ---------------------------------------------------------------------------

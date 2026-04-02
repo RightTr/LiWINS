@@ -22,20 +22,7 @@
 #include "filter/filter.h"
 #include "sensors/preprocess.h"
 #include "posebuffer.h"
-
-#ifdef USE_ROS1
-#include <ros/ros.h>
-#include <sensor_msgs/Imu.h>
-#elif defined(USE_ROS2)
-#include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/imu.hpp>
-#endif
-
-#ifdef USE_ROS1
-using ImuMsg = sensor_msgs::Imu;
-#elif defined(USE_ROS2)
-using ImuMsg = sensor_msgs::msg::Imu;
-#endif
+#include "ros_interface/ros_utils.h"
 
 /// *************Preconfiguration
 

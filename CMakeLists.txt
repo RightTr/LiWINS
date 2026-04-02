@@ -113,7 +113,7 @@ if(USE_ROS1)
     fins/filter/filter.cpp
     fins/lio_sam/utility.cpp
     fins/lio_sam/mapOptimization.cpp
-    fins/ros_interface/ros1_interface.cpp)
+    fins/ros_interface/ros_interface.cpp)
   target_link_libraries(fins ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
 endif()
 
@@ -140,7 +140,7 @@ if(USE_ROS2)
     fins/filter/filter.cpp
     fins/lio_sam/utility.cpp
     fins/lio_sam/mapOptimization.cpp
-    fins/ros_interface/ros2_interface.cpp)
+    fins/ros_interface/ros_interface.cpp)
   ament_target_dependencies(fins
     rclcpp
     sensor_msgs
