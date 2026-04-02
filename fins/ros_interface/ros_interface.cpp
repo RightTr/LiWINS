@@ -25,7 +25,6 @@ bool   reloc_en;
 bool   time_sync_en;
 bool   runtime_pos_log;
 bool   extrinsic_est_en;
-bool   use_zupt;
 bool   pcd_save_en;
 bool   imu_flip_en;
 
@@ -80,7 +79,7 @@ PoseStampedMsg msgBodyPose;
 double timediff_lidar_wrt_imu = 0.0;
 bool timediff_set_flg = false;
 
-const M3D IMU_FLIP_R = (M3D() <<
+M3D IMU_FLIP_R = (M3D() <<
     1.0,  0.0,  0.0,
     0.0, -1.0,  0.0,
     0.0,  0.0, -1.0).finished();
@@ -102,7 +101,7 @@ void load_config()
     rosparam_get("reloc/reloc_topic", reloc_topic, std::string("/reloc/manual"));
     rosparam_get("common/time_sync_en", time_sync_en, false);
     rosparam_get("common/time_offset_lidar_to_imu", time_diff_lidar_to_imu, 0.0);
-    rosparam_get("common/imu_flip", imu_flip_en, false);
+    rosparam_get("common/imu_flip_en", imu_flip_en, false);
     rosparam_get("filter_size_corner", filter_size_corner_min, 0.5);
     rosparam_get("filter_size_surf", filter_size_surf_min, 0.5);
     rosparam_get("filter_size_map", filter_size_map_min, 0.5);
@@ -139,25 +138,25 @@ void register_pub_sub()
 {
 	/*** ROS subscribe initialization ***/
     if (p_pre->lidar_type == AVIA) {
-        static auto sub_pcl = create_subscriber<LivoxMsg>(lid_topic, 200000, livox_pcl_cbk);
+        sub_pcl_livox = create_subscriber<LivoxMsg>(lid_topic, 200000, livox_pcl_cbk);
     } else {
-        static auto sub_pcl = create_subscriber<PointCloud2Msg>(lid_topic, 200000, standard_pcl_cbk);
+        sub_pcl_standard = create_subscriber<PointCloud2Msg>(lid_topic, 200000, standard_pcl_cbk);
     }
     
-    auto sub_reloc = create_subscriber<PoseStampedMsg>(reloc_topic, 10, reloc_cbk);
-    auto sub_imu = create_subscriber<ImuMsg>(imu_topic, 200000, imu_cbk);
-    auto pubLaserCloudFull = create_publisher<PointCloud2Msg>("/cloud_registered", 100000);
-    auto pubLaserCloudFull_body = create_publisher<PointCloud2Msg>("/cloud_registered_body", 100000);
-    auto pubLaserCloudEffect = create_publisher<PointCloud2Msg>("/cloud_effected", 100000);
-    auto pubLaserCloudMap = create_publisher<PointCloud2Msg>("/Laser_map", 100000);
+    sub_reloc = create_subscriber<PoseStampedMsg>(reloc_topic, 10, reloc_cbk);
+    sub_imu = create_subscriber<ImuMsg>(imu_topic, 200000, imu_cbk);
+    pubLaserCloudFull = create_publisher<PointCloud2Msg>("/cloud_registered", 100000);
+    pubLaserCloudFull_body = create_publisher<PointCloud2Msg>("/cloud_registered_body", 100000);
+    pubLaserCloudEffect = create_publisher<PointCloud2Msg>("/cloud_effected", 100000);
+    pubLaserCloudMap = create_publisher<PointCloud2Msg>("/Laser_map", 100000);
     #ifdef USE_ROS1
     int odom_qos = 0;  // ROS1 ignores this parameter
     #elif defined(USE_ROS2)
     auto odom_qos = rclcpp::QoS(rclcpp::KeepLast(50)).reliable();
     #endif
-    auto pubOdomAftMapped = create_publisher_qos<OdometryMsg>("/Odometry", odom_qos);
-    auto pubPath = create_publisher_qos<PathMsg>("/path", odom_qos);
-    auto pubOdomHighFreq = create_publisher_qos<OdometryMsg>("/OdometryHighFreq", odom_qos);
+    pubOdomAftMapped = create_publisher_qos<OdometryMsg>("/Odometry", odom_qos);
+    pubPath = create_publisher_qos<PathMsg>("/path", odom_qos);
+    pubOdomHighFreq = create_publisher_qos<OdometryMsg>("/OdometryHighFreq", odom_qos);
 }
 
 void standard_pcl_cbk(const Pcl2MsgConstPtr msg)

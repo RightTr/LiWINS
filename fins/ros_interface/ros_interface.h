@@ -18,7 +18,6 @@ extern bool   reloc_en;
 extern bool   time_sync_en;
 extern bool   runtime_pos_log;
 extern bool   extrinsic_est_en;
-extern bool   use_zupt;
 extern bool   pcd_save_en;
 extern bool   imu_flip_en;
 
@@ -60,6 +59,8 @@ extern std::deque<ImuMsgConstPtr>       imu_buffer;
 
 extern double  last_timestamp_lidar;
 extern double  last_timestamp_imu;
+
+extern M3D IMU_FLIP_R;
 
 void load_config();
 void register_pub_sub();

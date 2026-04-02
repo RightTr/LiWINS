@@ -1,11 +1,5 @@
 #include <csignal>
 
-#ifdef USE_ROS1
-#include <ros/ros.h>
-#elif defined(USE_ROS2)
-#include <rclcpp/rclcpp.hpp>
-#endif
-
 #include "ros_interface/ros_utils.h"
 #include "ros_interface/ros_interface.h"
 #include "laser_mapping.h"
@@ -20,11 +14,11 @@ static void sig_handle(int sig)
 int main(int argc, char** argv)
 {
 #ifdef USE_ROS1
-    ros::init(argc, argv, "laserMapping");
+    ros::init(argc, argv, "fins");
     init_ros_node();
 #elif defined(USE_ROS2)
     rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("laserMapping");
+    auto node = rclcpp::Node::make_shared("fins");
     init_ros_node(node);
 #endif
 

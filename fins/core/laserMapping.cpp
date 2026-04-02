@@ -15,11 +15,6 @@ static void h_share_model_cb(state_ikfom& s, esekfom::dyn_share_datastruct<doubl
 // ---------------------------------------------------------------------------
 void LaserMapping::init()
 {
-    FOV_DEG_      = (fov_deg + 10.0) > 179.9 ? 179.9 : (fov_deg + 10.0);
-    HALF_FOV_COS_ = cos(FOV_DEG_ * 0.5 * PI_M / 180.0);
-
-    _featsArray_.reset(new PointCloudXYZI());
-
     memset(point_selected_surf_, true,    sizeof(point_selected_surf_));
     memset(res_last_,            -1000.0f, sizeof(res_last_));
 
@@ -31,8 +26,8 @@ void LaserMapping::init()
     if (imu_flip_en)
     {
         // IMU frame inversion: coordinates in IMU frame should be transformed consistently.
-        Lidar_T_wrt_IMU_ = -Lidar_T_wrt_IMU_;
-        Lidar_R_wrt_IMU_ = -Lidar_R_wrt_IMU_;
+        Lidar_T_wrt_IMU_ = IMU_FLIP_R * Lidar_T_wrt_IMU_;
+        Lidar_R_wrt_IMU_ = IMU_FLIP_R * Lidar_R_wrt_IMU_;
     }
 
     p_imu->set_extrinsic(Lidar_T_wrt_IMU_, Lidar_R_wrt_IMU_);
@@ -41,8 +36,6 @@ void LaserMapping::init()
     p_imu->set_gyr_bias_cov(V3D(b_gyr_cov, b_gyr_cov, b_gyr_cov));
     p_imu->set_acc_bias_cov(V3D(b_acc_cov, b_acc_cov, b_acc_cov));
     p_imu->lidar_type = lidar_type;
-    p_imu->set_use_zupt(use_zupt);
-    p_imu->set_zupt_thresholds(zupt_acc_norm_threshold, zupt_gyro_threshold);
 
     g_laser_mapping = this;
     double epsi[23] = {0.001};
@@ -67,13 +60,6 @@ void LaserMapping::run()
             publish_odometryhighfreq(pose);
         }
     });
-
-    if (sam_enable) {
-        std::thread loopthread(&loopClosureThread);
-        std::thread globalthread(&visualizeGlobalMapThread);
-        loopthread.detach();
-        globalthread.detach();
-    }
 
     while (ros_ok())
     {
@@ -205,6 +191,9 @@ void LaserMapping::run()
         if (feature_pub_en)
             publish_map_cloud(featsFromMap_, lidar_end_time_, "camera_init");
     }
+
+    if (sam_enable)
+        stopMapOptimizationThreads();
 
     // Wake up the blocked Pop() so odomhighthread can exit cleanly
     p_imu->pbuffer.Push(Pose{});

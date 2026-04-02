@@ -52,7 +52,6 @@ private:
     PointCloudXYZI::Ptr normvec_{new PointCloudXYZI(100000, 1)};
     PointCloudXYZI::Ptr laserCloudOri_{new PointCloudXYZI(100000, 1)};
     PointCloudXYZI::Ptr corr_normvect_{new PointCloudXYZI(100000, 1)};
-    PointCloudXYZI::Ptr _featsArray_;
 
     // Map
     PointMapBase<PointType>::Ptr point_map_{std::make_shared<KD_TREE<PointType>>()};
@@ -72,10 +71,6 @@ private:
     int    scan_num_          = 0;
     int    feats_down_size_   = 0;
     int    effct_feat_num_    = 0;
-
-    // FOV
-    double HALF_FOV_COS_      = 0.0;
-    double FOV_DEG_           = 0.0;
 
     // Extrinsics
     V3D Lidar_T_wrt_IMU_{Zero3d};

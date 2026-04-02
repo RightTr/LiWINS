@@ -146,7 +146,7 @@ inline void ROS_PRINT_WARN(const char *fmt, ...) {
 #ifdef USE_ROS1
     ROS_WARN("%s", msg);
 #elif defined(USE_ROS2)
-    RCLCPP_WARN(rclcpp::get_logger("fast_lio_sam"), "%s", msg);
+    RCLCPP_WARN(rclcpp::get_logger("fins"), "%s", msg);
 #endif
 }
 
@@ -159,7 +159,7 @@ inline void ROS_PRINT_ERROR(const char *fmt, ...) {
 #ifdef USE_ROS1
     ROS_ERROR("%s", msg);
 #elif defined(USE_ROS2)
-    RCLCPP_ERROR(rclcpp::get_logger("fast_lio_sam"), "%s", msg);
+    RCLCPP_ERROR(rclcpp::get_logger("fins"), "%s", msg);
 #endif
 }
 
@@ -172,7 +172,7 @@ inline void ROS_PRINT_INFO(const char *fmt, ...) {
 #ifdef USE_ROS1
     ROS_INFO("%s", msg);
 #elif defined(USE_ROS2)
-    RCLCPP_INFO(rclcpp::get_logger("fast_lio_sam"), "%s", msg);
+    RCLCPP_INFO(rclcpp::get_logger("fins"), "%s", msg);
 #endif
 }
 
@@ -319,7 +319,7 @@ inline void init_ros_node(const rclcpp::Node::SharedPtr &node = nullptr) {
         if (node) {
             g_ros_node = node;
         } else {
-            g_ros_node = rclcpp::Node::make_shared("fast_lio_sam");
+            g_ros_node = rclcpp::Node::make_shared("fins");
         }
     }
 }
