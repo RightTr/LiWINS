@@ -13,6 +13,10 @@ void correctPoses();
 
 void publishSamMsg();
 
+void startMapOptimizationThreads();
+
+void stopMapOptimizationThreads();
+
 void loopClosureThread();
 
 void setLaserCurTime(double lidar_end_time);

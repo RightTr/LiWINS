@@ -87,7 +87,7 @@ vect3 SO3ToEuler(const SO3 &orient)
 }
 
 // ===========================
-// IMU ESTIMATOR (PREDICT STEP)
+// IMU ESTIMATOR
 // ===========================
 
 void estimator(
@@ -135,6 +135,11 @@ void update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state)
 	kf_state.change_P(P_new);
 }
 } // namespace zupt_updater
+
+// ===========================
+// WHEEL UPDATER FUNCTIONS
+// ===========================
+
 
 // ===========================
 // LIDAR UPDATER IMPLEMENTATION

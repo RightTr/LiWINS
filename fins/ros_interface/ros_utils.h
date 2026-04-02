@@ -24,6 +24,7 @@
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <livox_ros_driver2/CustomMsg.h>
 #include <fins/Pose6D.h>
+#include <fins/Wheel.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <tf/transform_broadcaster.h>
 
@@ -34,6 +35,7 @@ using OdometryMsg = nav_msgs::Odometry;
 using OdometryMsgConstPtr = nav_msgs::Odometry::ConstPtr;
 using OdomMsg = nav_msgs::Odometry;
 using Pose6D = fins::Pose6D;
+using WheelMsg = fins::Wheel;
 using MarkerMsg = visualization_msgs::Marker;
 using MarkerArrayMsg = visualization_msgs::MarkerArray;
 using PointMsg = geometry_msgs::Point;
@@ -80,6 +82,7 @@ using TransformStampedMsg = geometry_msgs::TransformStamped;
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <livox_ros_driver2/msg/custom_msg.hpp>
 #include <fins/msg/pose6_d.hpp>
+#include <fins/msg/wheel.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_eigen/tf2_eigen.hpp>
 
@@ -90,6 +93,7 @@ using OdometryMsg = nav_msgs::msg::Odometry;
 using OdometryMsgConstPtr = nav_msgs::msg::Odometry::ConstSharedPtr;
 using OdomMsg = nav_msgs::msg::Odometry;
 using Pose6D = fins::msg::Pose6D;
+using WheelMsg = fins::msg::Wheel;
 using MarkerMsg = visualization_msgs::msg::Marker;
 using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 using PointMsg = geometry_msgs::msg::Point;
@@ -370,4 +374,3 @@ inline typename rclcpp::Subscription<T>::SharedPtr create_subscriber_qos(const s
 #endif
 
 #endif
-

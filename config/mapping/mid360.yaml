@@ -22,8 +22,7 @@ mapping:
     extrinsic_R: [ 1., 0., 0.,
                 0., 1., 0.,
                 0., 0., 1.]
-    use_zupt: true
-    
+
 publish:
     path_en:  false
     scan_publish_en:  true       # false: close all the point cloud output

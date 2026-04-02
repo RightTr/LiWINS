@@ -184,12 +184,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     Q.block<3, 3>(6, 6).diagonal() = cov_bias_gyr;
     Q.block<3, 3>(9, 9).diagonal() = cov_bias_acc;
 
-    const bool is_static = std::fabs(acc_avr.norm() - G_m_s2) < zupt_acc_norm_threshold && angvel_avr.norm() < zupt_gyro_threshold;
-    if (use_zupt && is_static) {
-      estimator(kf_state, dt, in, Q, {zupt_updater::update});
-    }
-    else
-      estimator(kf_state, dt, in, Q);
+    estimator(kf_state, dt, in, Q);
 
     imu_state = kf_state.get_x();
     pbuffer.Push(Pose(imu_state.pos.x(), imu_state.pos.y(), imu_state.pos.z(),
@@ -204,13 +199,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
 
   double note = pcl_end_time > imu_end_time ? 1.0 : -1.0;
   dt = note * (pcl_end_time - imu_end_time);
-  {
-    const bool is_static = std::fabs(in.acc.norm() - G_m_s2) < zupt_acc_norm_threshold && in.gyro.norm() < zupt_gyro_threshold;
-    if (use_zupt && is_static)
-      estimator(kf_state, dt, in, Q, {zupt_updater::update});
-    else
-      estimator(kf_state, dt, in, Q);
-  }
+  estimator(kf_state, dt, in, Q);
 
   imu_state = kf_state.get_x();
   last_imu_ = meas.imu.back();

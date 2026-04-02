@@ -48,12 +48,7 @@ class ImuProcess
   void set_acc_cov(const V3D &scaler);
   void set_gyr_bias_cov(const V3D &b_g);
   void set_acc_bias_cov(const V3D &b_a);
-  void set_use_zupt(bool enabled) { use_zupt = enabled; }
-  void set_zupt_thresholds(double acc_norm_threshold, double gyro_threshold)
-  {
-    zupt_acc_norm_threshold = acc_norm_threshold;
-    zupt_gyro_threshold = gyro_threshold;
-  }
+
   Eigen::Matrix<double, 12, 12> Q;
   void Process(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr pcl_un_);
 
@@ -69,10 +64,6 @@ class ImuProcess
   double first_lidar_time;
   int lidar_type;
   PoseBuffer pbuffer;
-
-  bool use_zupt = false;
-  double zupt_acc_norm_threshold;
-  double zupt_gyro_threshold;
 
  private:
   void IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, int &N);

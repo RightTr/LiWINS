@@ -108,6 +108,7 @@ if(USE_ROS1)
     fins/core/laserMapping.cpp
     fins/sensors/preprocess.cpp
     fins/sensors/IMU_Processing.cpp
+    fins/sensors/wheel_Processing.cpp
     fins/map/ikd-Tree/ikd_Tree.cpp
     fins/map/octvox/octvox.cpp
     fins/filter/filter.cpp
@@ -135,6 +136,7 @@ if(USE_ROS2)
     fins/core/laserMapping.cpp
     fins/sensors/preprocess.cpp
     fins/sensors/IMU_Processing.cpp
+    fins/sensors/wheel_Processing.cpp
     fins/map/ikd-Tree/ikd_Tree.cpp
     fins/map/octvox/octvox.cpp
     fins/filter/filter.cpp

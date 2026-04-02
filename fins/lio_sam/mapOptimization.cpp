@@ -4,6 +4,8 @@
 #include "map_optimization.h"
 
 #include <algorithm>
+#include <atomic>
+#include <thread>
 
 #include <gtsam/geometry/Rot3.h>
 #include <gtsam/geometry/Pose3.h>
@@ -97,6 +99,10 @@ Eigen::Matrix3d rotationLidarToIMU;
 PathMsg globalPath;
 
 std::mutex mtx;
+
+std::thread loopThread;
+std::thread globalMapThread;
+std::atomic<bool> stopMapOptThreads(false);
 
 bool aLoopIsClosed = false;
 map<int, int> loopIndexContainer; // from new to old
@@ -223,6 +229,8 @@ void MapOptimizationInit()
     downSizeFilterICP.setLeafSize(mappingICPSize, mappingICPSize, mappingICPSize);
 
     allocateMemory();
+
+    startMapOptimizationThreads();
 }
 
 bool saveFrame()
@@ -729,11 +737,7 @@ void visualizeLoopClosure()
 
     markerArray.markers.push_back(markerNode);
     markerArray.markers.push_back(markerEdge);
-#ifdef USE_ROS1
-    pubLoopConstraintEdge.publish(markerArray);
-#elif defined(USE_ROS2)
-    pubLoopConstraintEdge->publish(markerArray);
-#endif
+    ros_publish(pubLoopConstraintEdge, markerArray);
 }
 
 void loopClosureThread()
@@ -742,7 +746,7 @@ void loopClosureThread()
         return;
 
     RateType rate(loopClosureFrequency);
-    while (ros_ok())
+    while (ros_ok() && !stopMapOptThreads.load())
     {
         rate.sleep();
         performLoopClosure();
@@ -801,8 +805,28 @@ void publishGlobalMap() {
 void visualizeGlobalMapThread()
 {
     RateType rate(0.2);
-    while (ros_ok()){
+    while (ros_ok() && !stopMapOptThreads.load()){
         rate.sleep();
         publishGlobalMap();
     }
+}
+
+void startMapOptimizationThreads()
+{
+    if (loopThread.joinable() || globalMapThread.joinable())
+        return;
+
+    stopMapOptThreads.store(false);
+    loopThread = std::thread(&loopClosureThread);
+    globalMapThread = std::thread(&visualizeGlobalMapThread);
+}
+
+void stopMapOptimizationThreads()
+{
+    stopMapOptThreads.store(true);
+
+    if (loopThread.joinable())
+        loopThread.join();
+    if (globalMapThread.joinable())
+        globalMapThread.join();
 }
