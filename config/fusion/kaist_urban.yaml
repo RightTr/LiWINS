@@ -1,0 +1,86 @@
+common:
+    lid_topic:  "/ns1/velodyne_points"
+    imu_topic:  "/imu/data_raw"
+    wheel_topic: "/joint_states"
+    time_sync_en: false         # ONLY turn on when external time synchronization is really not possible
+    time_offset_lidar_to_imu: 0.0 # Time offset between lidar and IMU calibrated by other algorithms, e.g. LI-Init (can be found in README).
+                                # This param will take effect no matter what time_sync_en is. So if the time offset is not known exactly, please set as 0.0
+
+preprocess:
+    lidar_type: 7 # 1 for Livox serials LiDAR, 2 for Velodyne LiDAR, 3 for ouster LiDAR, 4 for RoboSense LiDAR, 7 for KAIST Dataset
+    scan_line: 16
+    blind: 1
+
+mapping:
+    acc_cov: 0.346
+    gyr_cov: 3.046e-4
+    b_acc_cov: 1e-6
+    b_gyr_cov: 1e-10
+    fov_degree:    360.0
+    det_range:     100.0
+    extrinsic_est_en:  false      # true: enable the online estimation of IMU-LiDAR extrinsic
+    extrinsic_T: [ -0.333596, -0.373928, 1.94377 ] # LiDAR position in the IMU coordinate frame
+    extrinsic_R: [ -0.514521, 0.701075, -0.493723, # LiDAR rotation in the IMU coordinate frame
+                  -0.492472, -0.712956, -0.499164,
+                  -0.701954, -0.0136853, 0.712091 ]
+
+wheel:
+    enable: false
+    type: 3 # 0: Wheel2DAng, 1: Wheel2DLin, 2: Wheel2DCen, 3: Wheel3DAng, 4: Wheel3DLin, 5: Wheel3DCen
+    rl: 0.3
+    rr: 0.3
+    b: 1.5
+    noise_w: 0.2
+    noise_v: 0.5
+    noise_p: 0.1
+    max_history_time: 100.0
+    extrinsic_T: [0.07, 0.0, -1.7]
+    extrinsic_R: [1.0, 0.0, 0.0,
+                  0.0, 1.0, 0.0,
+                  0.0, 0.0, 1.0]
+
+lio_sam:
+  gpsTopic: "odometry/gpsz"                   # GPS odometry topic from navsat, see module_navsat.launch file
+
+  # GPS Settings
+  useImuHeadingInitialization: false           # if using GPS data, set to "true"
+  useGpsElevation: false                      # if GPS elevation is bad, set to "false"
+  gpsCovThreshold: 2.0                        # m^2, threshold for using GPS data
+  poseCovThreshold: 25.0                      # m^2, threshold for using GPS data
+  
+  # CPU Params
+  numberOfCores: 4                              # number of cores for mapping optimization
+  mappingProcessInterval: 0.15                  # seconds, regulate mapping frequency
+
+  # Surrounding map
+  surroundingkeyframeAddingDistThreshold: 1.0   # meters, regulate keyframe adding threshold
+  surroundingkeyframeAddingAngleThreshold: 0.2  # radians, regulate keyframe adding threshold
+  surroundingKeyframeDensity: 2.0               # meters, downsample surrounding keyframe poses   
+  surroundingKeyframeSearchRadius: 50.0         # meters, within n meters scan-to-map optimization (when loop closure disabled)
+
+  # Loop closure
+  loopClosureEnableFlag: true
+  loopClosureFrequency: 1.0                     # Hz, regulate loop closure constraint add frequency
+  surroundingKeyframeSize: 50                   # submap size (when loop closure enabled)
+  historyKeyframeSearchRadius: 5.0             # meters, key frame that is within n meters from current pose will be considerd for loop closure
+  historyKeyframeSearchTimeDiff: 15.0          # seconds, key frame that is n seconds older will be considered for loop closure
+  historyKeyframeSearchNum: 25                  # number of hostory key frames will be fused into a submap for loop closure
+  historyKeyframeFitnessScore: 0.3              # icp threshold, the smaller the better alignment
+
+  # Visualization
+  globalMapVisualizationSearchRadius: 1000.0    # meters, global map visualization radius
+  globalMapVisualizationPoseDensity: 10.0       # meters, global map visualization keyframe density
+  globalMapVisualizationLeafSize: 0.1           # meters, global map visualization cloud density
+
+  ikdtreeSearchNeighborNum: 8                   # number of neighbors to search in the ikdtree
+
+publish:
+    path_en:  true
+    scan_publish_en:  true       # false: close all the point cloud output
+    dense_publish_en: true       # false: low down the points number in a global-frame point clouds scan.
+    scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
+
+pcd_save:
+    pcd_save_en: false
+    interval: -1                 # how many LiDAR frames saved in each pcd file; 
+                                # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
