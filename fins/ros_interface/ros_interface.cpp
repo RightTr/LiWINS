@@ -141,10 +141,9 @@ void load_config()
     rosparam_get("mapping/extrinsic_est_en", extrinsic_est_en, true);
     rosparam_get("pcd_save/pcd_save_en", pcd_save_en, false);
     rosparam_get("pcd_save/interval", pcd_save_interval, -1);
-    rosparam_get("mapping/extrinsic_T", extrinT, std::vector<double>{0.0, 0.0, 0.0});
-    rosparam_get("mapping/extrinsic_R", extrinR, std::vector<double>{1.0, 0.0, 0.0,
-                                                                     0.0, 1.0, 0.0,
-                                                                     0.0, 0.0, 1.0});
+    rosparam_get("mapping/extrinsic_T", extrinT, std::vector<double>());
+    rosparam_get("mapping/extrinsic_R", extrinR, std::vector<double>());
+    
     rosparam_get("wheel/enable", wheel_en, false);
     rosparam_get("wheel/type", wheel_type, 0);
     rosparam_get("wheel/rl", wheel_rl, 1.0);
@@ -159,11 +158,7 @@ void load_config()
                                                                           0.0, 1.0, 0.0,
                                                                           0.0, 0.0, 1.0});
 
-	p_pre->lidar_type = lidar_type;
-    p_wheel->type = static_cast<WHEEL_TYPE>(std::max(0, std::min(5, wheel_type)));
-    p_wheel->set_intrinsic(wheel_rl, wheel_rr, wheel_b);
-    p_wheel->set_noise(wheel_noise_w, wheel_noise_v, wheel_noise_p);
-    p_wheel->set_history_time(wheel_max_history_time);
+    p_pre->lidar_type = lidar_type;
 }
 
 void livox_pcl_cbk(const LivoxCustomMsgConstPtr msg);

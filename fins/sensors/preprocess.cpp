@@ -950,7 +950,7 @@ void Preprocess::kaist_handler(const Pcl2MsgConstPtr &msg)
 
   pl_surf.reserve(plsize);
 
-  const double SCAN_PERIOD_MS = 100.0; // 10Hz
+  const double SCAN_PERIOD_MS = 100.0; // 10Hz 100ms
 
   for (int i = 0; i < plsize; i++)
   {

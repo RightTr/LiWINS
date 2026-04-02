@@ -161,8 +161,6 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     const double head_time = get_ros_time_sec(head->header.stamp);
     const double tail_time = get_ros_time_sec(tail->header.stamp);
 
-    if (head_time < last_lidar_end_time_) continue;
-
     angvel_avr << 0.5 * (head->angular_velocity.x + tail->angular_velocity.x),
                   0.5 * (head->angular_velocity.y + tail->angular_velocity.y),
                   0.5 * (head->angular_velocity.z + tail->angular_velocity.z);
@@ -193,7 +191,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     acc_s_last  = imu_state.rot * (acc_avr - imu_state.ba);
     for (int i = 0; i < 3; i++) acc_s_last[i] += imu_state.grav[i];
 
-  double offs_t = tail_time - last_lidar_end_time_;
+    double offs_t = tail_time - last_lidar_end_time_;
     IMUpose.push_back(set_pose6d(offs_t, acc_s_last, angvel_last, imu_state.vel, imu_state.pos, imu_state.rot.toRotationMatrix()));
   }
 

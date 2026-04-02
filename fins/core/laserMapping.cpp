@@ -39,7 +39,14 @@ void LaserMapping::init()
     p_imu->set_acc_cov(V3D(acc_cov,   acc_cov,   acc_cov));
     p_imu->set_gyr_bias_cov(V3D(b_gyr_cov, b_gyr_cov, b_gyr_cov));
     p_imu->set_acc_bias_cov(V3D(b_acc_cov, b_acc_cov, b_acc_cov));
+
     p_imu->lidar_type = lidar_type;
+    p_wheel->wheel_type = wheel_type;
+
+    p_wheel->set_intrinsic(wheel_rl, wheel_rr, wheel_b);
+    p_wheel->set_noise(wheel_noise_w, wheel_noise_v, wheel_noise_p);
+    p_wheel->set_history_time(wheel_max_history_time);
+    p_wheel->set_extrinsic(Wheel_T_wrt_IMU_, Wheel_R_wrt_IMU_);
 
     g_laser_mapping = this;
     double epsi[state_ikfom::DOF];
@@ -75,6 +82,7 @@ void LaserMapping::run()
         {
             feats_down_world_->clear();
             p_imu->Reset();
+            p_wheel->Reset();
             state_ikfom state_point_reloc;
             {
                 std::lock_guard<std::mutex> lock(mtx_reloc);
@@ -90,10 +98,15 @@ void LaserMapping::run()
             relocalize_flag.store(false);
             flg_first_scan_ = true;
             wheel_clone_ready_ = false;
+            wheel_last_lidar_time_ = -1.0;
             continue;
         }
 
         if (!sync_packages(Measures_)) continue;
+
+        bool wheel_meas_ready = false;
+        if (wheel_en)
+            wheel_meas_ready = p_wheel->Process(Measures_.wheel, wheel_last_lidar_time_, lidar_end_time_);
 
         // ---- First scan init ----------------------------------------------
         if (flg_first_scan_)
@@ -109,7 +122,7 @@ void LaserMapping::run()
         state_point_ = kf_.get_x();
         pos_lid_     = state_point_.pos + state_point_.rot * state_point_.offset_T_L_I;
 
-        if (wheel_en && wheel_clone_ready_ && p_wheel->Process(wheel_last_lidar_time_, lidar_end_time_))
+        if (wheel_en && wheel_clone_ready_ && wheel_meas_ready)
         {
             wheel_updater::update(kf_, *p_wheel, Wheel_R_wrt_IMU_, Wheel_T_wrt_IMU_);
             state_point_ = kf_.get_x();
@@ -261,6 +274,7 @@ bool LaserMapping::sync_packages(MeasureGroup& meas)
     double imu_time = get_ros_time_sec(imu_buffer.front()->header.stamp);
 
     meas.imu.clear();
+    meas.wheel.clear();
     while (!imu_buffer.empty() && (imu_time < lidar_end_time_))
     {
         imu_time = get_ros_time_sec(imu_buffer.front()->header.stamp);
@@ -271,7 +285,13 @@ bool LaserMapping::sync_packages(MeasureGroup& meas)
 
     while (!wheel_buffer.empty() && wheel_buffer.front()->timestamp <= lidar_end_time_)
     {
-        p_wheel->feed_measurement(*wheel_buffer.front());
+        meas.wheel.push_back(wheel_buffer.front());
+        wheel_buffer.pop_front();
+    }
+
+    if (wheel_en && !wheel_buffer.empty())
+    {
+        meas.wheel.push_back(wheel_buffer.front());
         wheel_buffer.pop_front();
     }
 

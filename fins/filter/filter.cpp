@@ -100,8 +100,8 @@ void estimator(
     std::initializer_list<UpdateFn> updates)
 {
     kf_state.predict(dt, Q, in);
-    for (const auto& update : updates)
-        update(kf_state);
+    // for (const auto& update : updates)
+    //     update(kf_state);
 }
 
 // ===========================
@@ -189,22 +189,18 @@ bool update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
     pose1.rot_fej = pose1.rot;
     pose1.pos_fej = pose1.pos;
 
-    WheelLinearizationResult wheel_linearization;
-    if (!wheel_process.ComputeLinearSystem(pose0, pose1, wheel_rot_in_imu, wheel_pos_in_imu, wheel_linearization))
-        return false;
-    if (wheel_linearization.H.cols() != 12)
-        return false;
+    Eigen::MatrixXd wheel_H;
+    Eigen::VectorXd wheel_res;
+    wheel_process.ComputeLinearSystem(pose0, pose1, wheel_H, wheel_res);
 
-    const bool is_3d = wheel_process.type == Wheel3DAng || wheel_process.type == Wheel3DLin || wheel_process.type == Wheel3DCen;
+    const bool is_3d = wheel_process.wheel_type == Wheel3DAng || wheel_process.wheel_type == Wheel3DLin || wheel_process.wheel_type == Wheel3DCen;
     MatrixXd wheel_cov = is_3d ? MatrixXd(wheel_process.latest_result().Cov_3D) : MatrixXd(wheel_process.latest_result().Cov_2D);
-    if (wheel_cov.rows() != wheel_linearization.res.rows() || wheel_cov.cols() != wheel_linearization.res.rows())
-        return false;
 
-    MatrixXd H = MatrixXd::Zero(wheel_linearization.H.rows(), state_ikfom::DOF);
-    H.block(0, clone_rot_idx, wheel_linearization.H.rows(), 3) = wheel_linearization.H.block(0, 0, wheel_linearization.H.rows(), 3);
-    H.block(0, clone_pos_idx, wheel_linearization.H.rows(), 3) = wheel_linearization.H.block(0, 3, wheel_linearization.H.rows(), 3);
-    H.block(0, rot_idx, wheel_linearization.H.rows(), 3) = wheel_linearization.H.block(0, 6, wheel_linearization.H.rows(), 3);
-    H.block(0, pos_idx, wheel_linearization.H.rows(), 3) = wheel_linearization.H.block(0, 9, wheel_linearization.H.rows(), 3);
+    MatrixXd H = MatrixXd::Zero(wheel_H.rows(), state_ikfom::DOF);
+    H.block(0, clone_rot_idx, wheel_H.rows(), 3) = wheel_H.block(0, 0, wheel_H.rows(), 3);
+    H.block(0, clone_pos_idx, wheel_H.rows(), 3) = wheel_H.block(0, 3, wheel_H.rows(), 3);
+    H.block(0, rot_idx, wheel_H.rows(), 3) = wheel_H.block(0, 6, wheel_H.rows(), 3);
+    H.block(0, pos_idx, wheel_H.rows(), 3) = wheel_H.block(0, 9, wheel_H.rows(), 3);
 
     auto P = kf_state.get_P();
     const MatrixXd S = H * P * H.transpose() + wheel_cov;
@@ -213,7 +209,7 @@ bool update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
         Matrix<double, state_ikfom::DOF, state_ikfom::DOF>::Identity();
 
     state_ikfom x = curr_state;
-    const Matrix<double, state_ikfom::DOF, 1> dx = K * wheel_linearization.res;
+    const Matrix<double, state_ikfom::DOF, 1> dx = K * wheel_res;
     x.boxplus(dx);
     kf_state.change_x(x);
 

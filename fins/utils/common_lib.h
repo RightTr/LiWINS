@@ -67,7 +67,7 @@ inline float calc_dist(PointType p1, PointType p2)
     return d;
 }
 
-struct MeasureGroup     // Lidar data and imu dates for the curent process
+struct MeasureGroup     // Lidar data and synchronized imu / wheel data for the current process
 {
     MeasureGroup()
     {
@@ -78,6 +78,7 @@ struct MeasureGroup     // Lidar data and imu dates for the curent process
     double lidar_end_time;
     PointCloudXYZI::Ptr lidar;
     deque<ImuMsgConstPtr> imu;
+    deque<WheelMsgConstPtr> wheel;
 };
 
 struct StatesGroup

@@ -19,7 +19,6 @@ WheelProcess::~WheelProcess() {}
 void WheelProcess::Reset()
 {
   data_stack_.clear();
-  t_hist.clear();
   preintegration_ = WheelPreintegration();
 }
 
@@ -42,42 +41,48 @@ void WheelProcess::set_history_time(double max_history_time)
   this->max_history_time = max_history_time;
 }
 
-void WheelProcess::enable_calib_ext(bool enable)
+void WheelProcess::set_extrinsic(const MD(4,4) &T)
 {
-  do_calib_ext = enable;
+  wheel_T_wrt_IMU = T.block<3,1>(0,3);
+  wheel_R_wrt_IMU = T.block<3,3>(0,0);
 }
 
-void WheelProcess::enable_calib_dt(bool enable)
+void WheelProcess::set_extrinsic(const V3D &transl)
 {
-  do_calib_dt = enable;
+  wheel_T_wrt_IMU = transl;
+  wheel_R_wrt_IMU.setIdentity();
 }
 
-void WheelProcess::enable_calib_int(bool enable)
+void WheelProcess::set_extrinsic(const V3D &transl, const M3D &rot)
 {
-  do_calib_int = enable;
+  wheel_T_wrt_IMU = transl;
+  wheel_R_wrt_IMU = rot;
 }
 
-void WheelProcess::feed_measurement(const WheelMsg &data)
+bool WheelProcess::Process(const std::deque<WheelMsgConstPtr> &wheel,
+                           double time0,
+                           double time1,
+                           WheelPreintegration *result)
 {
-  data_stack_.push_back(data);
-  std::sort(data_stack_.begin(), data_stack_.end(),
-            [](const WheelMsg &lhs, const WheelMsg &rhs) { return lhs.timestamp < rhs.timestamp; });
-
-  for (auto it = data_stack_.begin(); it != data_stack_.end();)
+  for (const auto &msg : wheel)
   {
-    if (data.timestamp - it->timestamp > max_history_time)
-      it = data_stack_.erase(it);
-    else
-      ++it;
+    if (!data_stack_.empty() && msg->timestamp <= data_stack_.back().timestamp)
+      continue;
+    data_stack_.push_back(*msg);
   }
 
-  if (t_hist.size() > 100)
-    t_hist.pop_front();
-  t_hist.push_back(data.timestamp);
-}
+  if (!data_stack_.empty())
+  {
+    const double latest_time = data_stack_.back().timestamp;
+    for (auto it = data_stack_.begin(); it != data_stack_.end();)
+    {
+      if (latest_time - it->timestamp > max_history_time)
+        it = data_stack_.erase(it);
+      else
+        ++it;
+    }
+  }
 
-bool WheelProcess::Process(double time0, double time1, WheelPreintegration *result)
-{
   std::vector<WheelMsg> data_vec;
   if (!select_wheel_data(time0, time1, data_vec))
     return false;
@@ -92,16 +97,12 @@ bool WheelProcess::Process(double time0, double time1, WheelPreintegration *resu
     if (dt <= 0.0)
       continue;
 
-    if (type == Wheel3DAng || type == Wheel3DLin || type == Wheel3DCen)
+    if (wheel_type == Wheel3DAng || wheel_type == Wheel3DLin || wheel_type == Wheel3DCen)
     {
-      if (do_calib_int)
-        preintegration_intrinsics_3D(dt, data_vec[i]);
       preintegration_3D(dt, data_vec[i], data_vec[i + 1]);
     }
     else
     {
-      if (do_calib_int)
-        preintegration_intrinsics_2D(dt, data_vec[i]);
       preintegration_2D(dt, data_vec[i], data_vec[i + 1]);
     }
   }
@@ -166,17 +167,15 @@ bool WheelProcess::select_wheel_data(double time0, double time1, std::vector<Whe
   return data_vec.size() >= 2;
 }
 
-bool WheelProcess::ComputeLinearSystem(const WheelPoseState &pose0,
+void WheelProcess::ComputeLinearSystem(const WheelPoseState &pose0,
                                        const WheelPoseState &pose1,
-                                       const M3D &extrinsic_rot,
-                                       const V3D &extrinsic_pos,
-                                       WheelLinearizationResult &result) const
+                                       Eigen::MatrixXd &H,
+                                       Eigen::VectorXd &res) const
 {
-  if (type == Wheel3DAng || type == Wheel3DLin || type == Wheel3DCen)
-    compute_linear_system_3D(pose0, pose1, extrinsic_rot, extrinsic_pos, result);
+  if (wheel_type == Wheel3DAng || wheel_type == Wheel3DLin || wheel_type == Wheel3DCen)
+    compute_linear_system_3D(pose0, pose1, H, res);
   else
-    compute_linear_system_2D(pose0, pose1, extrinsic_rot, extrinsic_pos, result);
-  return result.H.size() > 0 && result.res.size() > 0;
+    compute_linear_system_2D(pose0, pose1, H, res);
 }
 
 WheelMsg WheelProcess::interpolate_data(const WheelMsg &data1, const WheelMsg &data2, double timestamp)
@@ -189,106 +188,21 @@ WheelMsg WheelProcess::interpolate_data(const WheelMsg &data1, const WheelMsg &d
   return data;
 }
 
-void WheelProcess::preintegration_intrinsics_2D(double dt, const WheelMsg &data)
-{
-  const double w_l = data.encoder1;
-  const double w_r = data.encoder2;
-  const double rl = this->rl;
-  const double rr = this->rr;
-  const double b = this->b;
-
-  const double w = (w_r * rr - w_l * rl) / b;
-  const double v = (w_r * rr + w_l * rl) / 2.0;
-
-  Eigen::Matrix<double, 1, 3> Hwx = Eigen::Matrix<double, 1, 3>::Zero();
-  Hwx(0, 0) = -w_l / b;
-  Hwx(0, 1) = w_r / b;
-  Hwx(0, 2) = -(w_r * rr - w_l * rl) / (b * b);
-
-  Eigen::Matrix<double, 1, 3> Hvx = Eigen::Matrix<double, 1, 3>::Zero();
-  Hvx(0, 0) = w_l / 2.0;
-  Hvx(0, 1) = w_r / 2.0;
-
-  double h_thw = dt;
-  double h_xth = (v * (std::cos(preintegration_.th_2D - w * dt) - std::cos(preintegration_.th_2D))) / w;
-  double h_yth = -(v * (std::sin(preintegration_.th_2D - w * dt) - std::sin(preintegration_.th_2D))) / w;
-  double h_xw = (v * (std::sin(preintegration_.th_2D - w * dt) - std::sin(preintegration_.th_2D))) / (w * w) +
-                (v * std::cos(preintegration_.th_2D - w * dt) * dt) / w;
-  double h_yw = (v * (std::cos(preintegration_.th_2D - w * dt) - std::cos(preintegration_.th_2D))) / (w * w) -
-                (v * std::sin(preintegration_.th_2D - w * dt) * dt) / w;
-  double h_xv = -(std::sin(preintegration_.th_2D - w * dt) - std::sin(preintegration_.th_2D)) / w;
-  double h_yv = -(std::cos(preintegration_.th_2D - w * dt) - std::cos(preintegration_.th_2D)) / w;
-
-  if (std::abs(w) < 1e-4)
-  {
-    h_xth = v * std::sin(preintegration_.th_2D) * dt;
-    h_yth = v * std::cos(preintegration_.th_2D) * dt;
-    h_xw = v * std::sin(preintegration_.th_2D) * dt * dt / 2.0;
-    h_yw = v * std::cos(preintegration_.th_2D) * dt * dt / 2.0;
-    h_xv = std::cos(preintegration_.th_2D) * dt;
-    h_yv = -std::sin(preintegration_.th_2D) * dt;
-  }
-
-  preintegration_.dx_di_2D = preintegration_.dx_di_2D + h_xth * preintegration_.dth_di_2D + h_xw * Hwx + h_xv * Hvx;
-  preintegration_.dy_di_2D = preintegration_.dy_di_2D + h_yth * preintegration_.dth_di_2D + h_yw * Hwx + h_yv * Hvx;
-  preintegration_.dth_di_2D = preintegration_.dth_di_2D + h_thw * Hwx;
-}
-
-void WheelProcess::preintegration_intrinsics_3D(double dt, const WheelMsg &data)
-{
-  const double w_l = data.encoder1;
-  const double w_r = data.encoder2;
-  const double rl = this->rl;
-  const double rr = this->rr;
-  const double b = this->b;
-
-  Eigen::Vector3d w(0.0, 0.0, (w_r * rr - w_l * rl) / b);
-  Eigen::Vector3d v((w_r * rr + w_l * rl) / 2.0, 0.0, 0.0);
-
-  Eigen::Matrix3d Hwx = Eigen::Matrix3d::Zero();
-  Hwx(2, 0) = -w_l / b;
-  Hwx(2, 1) = w_r / b;
-  Hwx(2, 2) = -(w_r * rr - w_l * rl) / (b * b);
-
-  Eigen::Matrix3d Hvx = Eigen::Matrix3d::Zero();
-  Hvx(0, 0) = w_l / 2.0;
-  Hvx(0, 1) = w_r / 2.0;
-
-  const Eigen::Vector3d w_dt_exp = -w * dt;
-  const Eigen::Matrix3d R = Exp(Eigen::Vector3d(w_dt_exp));
-  Eigen::Matrix3d Hth = Eigen::Matrix3d::Identity();
-  const Eigen::Vector3d w_dt = -w * dt;
-  const double theta = w_dt.norm();
-  if (theta >= 1e-6)
-  {
-    const Eigen::Vector3d axis = w_dt / theta;
-    Hth = std::sin(theta) / theta * Eigen::Matrix3d::Identity() +
-          (1.0 - std::sin(theta) / theta) * axis * axis.transpose() +
-          ((1.0 - std::cos(theta)) / theta) * skew_sym_mat(axis);
-  }
-  Hth *= dt;
-
-  preintegration_.dp_di_3D =
-      preintegration_.dp_di_3D - preintegration_.R_3D.transpose() * skew_sym_mat(Eigen::Vector3d(v * dt)) * preintegration_.dR_di_3D +
-      preintegration_.R_3D.transpose() * Hvx * dt;
-  preintegration_.dR_di_3D = R * preintegration_.dR_di_3D + Hth * Hwx;
-}
-
 void WheelProcess::preintegration_2D(double dt, const WheelMsg &data1, const WheelMsg &data2)
 {
   const double rl = this->rl;
   const double rr = this->rr;
   const double b = this->b;
 
-  double w1 = 0.0, w2 = 0.0, v1 = 0.0, v2 = 0.0;
-  if (type == Wheel2DAng)
+  double w1 = 0.0, w2 = 0.0, v1 = 0.0, v2 = 0.0; // pose1 and pose2's angular and linear velocity
+  if (wheel_type == Wheel2DAng)
   {
     w1 = (data1.encoder2 * rr - data1.encoder1 * rl) / b;
     v1 = (data1.encoder2 * rr + data1.encoder1 * rl) / 2.0;
     w2 = (data2.encoder2 * rr - data2.encoder1 * rl) / b;
     v2 = (data2.encoder2 * rr + data2.encoder1 * rl) / 2.0;
   }
-  else if (type == Wheel2DLin)
+  else if (wheel_type == Wheel2DLin)
   {
     w1 = (data1.encoder2 - data1.encoder1) / b;
     v1 = (data1.encoder2 + data1.encoder1) / 2.0;
@@ -341,12 +255,12 @@ void WheelProcess::preintegration_2D(double dt, const WheelMsg &data1, const Whe
 
   Eigen::Matrix<double, 1, 2> Hwn = Eigen::Matrix<double, 1, 2>::Zero();
   Eigen::Matrix<double, 1, 2> Hvn = Eigen::Matrix<double, 1, 2>::Zero();
-  if (type == Wheel2DAng)
+  if (wheel_type == Wheel2DAng)
   {
     Hwn << rl / b, -rr / b;
     Hvn << -rl / 2.0, -rr / 2.0;
   }
-  else if (type == Wheel2DLin)
+  else if (wheel_type == Wheel2DLin)
   {
     Hwn << 1.0 / b, -1.0 / b;
     Hvn << -0.5, -0.5;
@@ -387,11 +301,11 @@ void WheelProcess::preintegration_2D(double dt, const WheelMsg &data1, const Whe
   Phi_ns.block<1, 2>(2, 0) = h_yw * Hwn + h_yv * Hvn;
 
   Eigen::Matrix2d Q = Eigen::Matrix2d::Zero();
-  if (type == Wheel2DAng)
+  if (wheel_type == Wheel2DAng)
   {
     Q = std::pow(noise_w, 2) / dt * Eigen::Matrix2d::Identity();
   }
-  else if (type == Wheel2DLin)
+  else if (wheel_type == Wheel2DLin)
   {
     Q = std::pow(noise_v, 2) / dt * Eigen::Matrix2d::Identity();
   }
@@ -419,14 +333,14 @@ void WheelProcess::preintegration_3D(double dt, const WheelMsg &data1, const Whe
   Eigen::Vector3d w_hat2 = Zero3d;
   Eigen::Vector3d v_hat2 = Zero3d;
 
-  if (type == Wheel3DAng)
+  if (wheel_type == Wheel3DAng)
   {
     w_hat1 << 0.0, 0.0, (data1.encoder2 * rr - data1.encoder1 * rl) / b;
     v_hat1 << (data1.encoder2 * rr + data1.encoder1 * rl) / 2.0, 0.0, 0.0;
     w_hat2 << 0.0, 0.0, (data2.encoder2 * rr - data2.encoder1 * rl) / b;
     v_hat2 << (data2.encoder2 * rr + data2.encoder1 * rl) / 2.0, 0.0, 0.0;
   }
-  else if (type == Wheel3DLin)
+  else if (wheel_type == Wheel3DLin)
   {
     w_hat1 << 0.0, 0.0, (data1.encoder2 - data1.encoder1) / b;
     v_hat1 << (data1.encoder2 + data1.encoder1) / 2.0, 0.0, 0.0;
@@ -543,7 +457,7 @@ void WheelProcess::preintegration_3D(double dt, const WheelMsg &data1, const Whe
   const Eigen::Vector3d p_new = preintegration_.p_3D + k1_p / 6.0 + k2_p / 3.0 + k3_p / 3.0 + k4_p / 6.0;
 
   Eigen::Matrix<double, 6, 6> Q = Eigen::Matrix<double, 6, 6>::Zero();
-  if (type == Wheel3DAng)
+  if (wheel_type == Wheel3DAng)
   {
     Q(0, 0) = std::pow(noise_w, 2) / dt;
     Q(1, 1) = std::pow(noise_p, 2) / dt;
@@ -552,7 +466,7 @@ void WheelProcess::preintegration_3D(double dt, const WheelMsg &data1, const Whe
     Q(4, 4) = std::pow(noise_p, 2) / dt;
     Q(5, 5) = std::pow(noise_p, 2) / dt;
   }
-  else if (type == Wheel3DLin)
+  else if (wheel_type == Wheel3DLin)
   {
     Q(0, 0) = std::pow(noise_v, 2) / (b * b * dt);
     Q(1, 1) = std::pow(noise_p, 2) / dt;
@@ -589,46 +503,36 @@ void WheelProcess::preintegration_3D(double dt, const WheelMsg &data1, const Whe
 
 void WheelProcess::compute_linear_system_2D(const WheelPoseState &pose0,
                                             const WheelPoseState &pose1,
-                                            const M3D &extrinsic_rot,
-                                            const V3D &extrinsic_pos,
-                                            WheelLinearizationResult &result) const
+                                            Eigen::MatrixXd &H,
+                                            Eigen::VectorXd &res) const
 {
   const Eigen::Vector3d pI0inG = pose0.pos;
   const Eigen::Vector3d pI1inG = pose1.pos;
   const Eigen::Matrix3d RGtoI0 = pose0.rot;
   const Eigen::Matrix3d RGtoI1 = pose1.rot;
-  const Eigen::Vector3d pIinO = extrinsic_pos;
-  const Eigen::Matrix3d RItoO = extrinsic_rot;
+  const Eigen::Vector3d pIinO = wheel_T_wrt_IMU;
+  const Eigen::Matrix3d RItoO = wheel_R_wrt_IMU;
   const Eigen::Vector3d pOinI = -RItoO.transpose() * pIinO;
-  Eigen::Matrix3d RO0toO1 = RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose();
-  Eigen::Matrix3d RO1toO0 = RO0toO1.transpose();
 
   const Eigen::Vector3d e3(0.0, 0.0, 1.0);
   Eigen::Matrix<double, 2, 3> Lambda = Eigen::Matrix<double, 2, 3>::Zero();
   Lambda.block<2, 2>(0, 0) = Eigen::Matrix2d::Identity();
 
-  result.res = Eigen::Vector3d::Zero();
+  res = Eigen::Vector3d::Zero();
   const Eigen::Matrix3d theta_est_rot = RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose();
   const double theta_est = e3.transpose() * Log(theta_est_rot);
-  result.res(0) = theta_est - preintegration_.th_2D;
+  res(0) = theta_est - preintegration_.th_2D;
   const Eigen::Vector2d d_int(preintegration_.x_2D, preintegration_.y_2D);
   const Eigen::Vector2d d_est =
       Lambda * RItoO * RGtoI0 * (pI1inG + RGtoI1.transpose() * pOinI - pI0inG - RGtoI0.transpose() * pOinI);
-  result.res.segment<2>(1) = d_int - d_est;
+  res.segment<2>(1) = d_int - d_est;
 
-  int H_size = 12;
-  int H_count = 12;
-  H_size += do_calib_ext ? 6 : 0;
-  H_size += do_calib_dt ? 1 : 0;
-  H_size += do_calib_int ? 3 : 0;
-  result.H = Eigen::MatrixXd::Zero(3, H_size);
+  H = Eigen::MatrixXd::Zero(3, 12);
 
   const Eigen::Vector3d pI0inG_fej = pose0.pos_fej;
   const Eigen::Vector3d pI1inG_fej = pose1.pos_fej;
   const Eigen::Matrix3d RGtoI0_fej = pose0.rot_fej;
   const Eigen::Matrix3d RGtoI1_fej = pose1.rot_fej;
-  RO0toO1 = RItoO * RGtoI1_fej * RGtoI0_fej.transpose() * RItoO.transpose();
-  RO1toO0 = RO0toO1.transpose();
 
   const Eigen::Matrix<double, 1, 3> dzr_dth0 = -e3.transpose() * RItoO * RGtoI1_fej * RGtoI0_fej.transpose();
   const Eigen::Matrix<double, 1, 3> dzr_dth1 = e3.transpose() * RItoO;
@@ -638,78 +542,41 @@ void WheelProcess::compute_linear_system_2D(const WheelPoseState &pose0,
   const Eigen::Matrix<double, 2, 3> dzp_dth1 = -Lambda * RItoO * RGtoI0_fej * RGtoI1_fej.transpose() * skew_sym_mat(pOinI);
   const Eigen::Matrix<double, 2, 3> dzp_dp1 = Lambda * RItoO * RGtoI0_fej;
 
-  result.H.block<1, 3>(0, 0) = dzr_dth0;
-  result.H.block<1, 3>(0, 6) = dzr_dth1;
-  result.H.block<2, 3>(1, 0) = dzp_dth0;
-  result.H.block<2, 3>(1, 3) = dzp_dp0;
-  result.H.block<2, 3>(1, 6) = dzp_dth1;
-  result.H.block<2, 3>(1, 9) = dzp_dp1;
-
-  if (do_calib_ext)
-  {
-    const Eigen::Matrix<double, 1, 3> dzr_dthcalib = e3.transpose() * (Eigen::Matrix3d::Identity() - RO0toO1);
-    const Eigen::Vector3d dzp_dthcalib_arg = RItoO * RGtoI0_fej * (pI1inG_fej - pI0inG_fej) - RO1toO0 * pIinO;
-    const Eigen::Matrix<double, 2, 3> dzp_dthcalib =
-        Lambda * (skew_sym_mat(dzp_dthcalib_arg) + RO1toO0 * skew_sym_mat(pIinO));
-    const Eigen::Matrix<double, 2, 3> dzp_dpcalib = Lambda * (-RO1toO0 + Eigen::Matrix3d::Identity());
-    result.H.block<1, 3>(0, H_count) = dzr_dthcalib;
-    result.H.block<2, 3>(1, H_count) = dzp_dthcalib;
-    result.H.block<2, 3>(1, H_count + 3) = dzp_dpcalib;
-    H_count += 6;
-  }
-
-  if (do_calib_dt)
-  {
-    result.H(0, H_count) = (dzr_dth0 * pose0.ang_vel + dzr_dth1 * pose1.ang_vel)(0, 0);
-    result.H.block<2, 1>(1, H_count) = dzp_dth0 * pose0.ang_vel + dzp_dp0 * pose0.lin_vel +
-                                       dzp_dth1 * pose1.ang_vel + dzp_dp1 * pose1.lin_vel;
-    ++H_count;
-  }
-
-  if (do_calib_int)
-  {
-    result.H.block<1, 3>(0, H_count) = -preintegration_.dth_di_2D;
-    result.H.block<1, 3>(1, H_count) = -preintegration_.dx_di_2D;
-    result.H.block<1, 3>(2, H_count) = -preintegration_.dy_di_2D;
-  }
+  H.block<1, 3>(0, 0) = dzr_dth0;
+  H.block<1, 3>(0, 6) = dzr_dth1;
+  H.block<2, 3>(1, 0) = dzp_dth0;
+  H.block<2, 3>(1, 3) = dzp_dp0;
+  H.block<2, 3>(1, 6) = dzp_dth1;
+  H.block<2, 3>(1, 9) = dzp_dp1;
 }
 
 void WheelProcess::compute_linear_system_3D(const WheelPoseState &pose0,
                                             const WheelPoseState &pose1,
-                                            const M3D &extrinsic_rot,
-                                            const V3D &extrinsic_pos,
-                                            WheelLinearizationResult &result) const
+                                            Eigen::MatrixXd &H,
+                                            Eigen::VectorXd &res) const
 {
   const Eigen::Vector3d pI0inG = pose0.pos;
   const Eigen::Vector3d pI1inG = pose1.pos;
   const Eigen::Matrix3d RGtoI0 = pose0.rot;
   const Eigen::Matrix3d RGtoI1 = pose1.rot;
-  const Eigen::Vector3d pIinO = extrinsic_pos;
-  const Eigen::Matrix3d RItoO = extrinsic_rot;
+  const Eigen::Vector3d pIinO = wheel_T_wrt_IMU;
+  const Eigen::Matrix3d RItoO = wheel_R_wrt_IMU;
   const Eigen::Vector3d pOinI = -RItoO.transpose() * pIinO;
-  Eigen::Matrix3d RO0toO1 = RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose();
-  Eigen::Matrix3d RO1toO0 = RO0toO1.transpose();
+  const Eigen::Matrix3d RO0toO1 = RItoO * RGtoI1 * RGtoI0.transpose() * RItoO.transpose();
 
-  result.res = Eigen::Matrix<double, 6, 1>::Zero();
+  res = Eigen::Matrix<double, 6, 1>::Zero();
   const Eigen::Matrix3d rot_residual = preintegration_.R_3D * RO0toO1.transpose();
-  result.res.segment<3>(0) = -Log(rot_residual);
+  res.segment<3>(0) = -Log(rot_residual);
   const Eigen::Vector3d p_est =
       RItoO * RGtoI0 * (pI1inG + RGtoI1.transpose() * pOinI - pI0inG - RGtoI0.transpose() * pOinI);
-  result.res.segment<3>(3) = preintegration_.p_3D - p_est;
+  res.segment<3>(3) = preintegration_.p_3D - p_est;
 
-  int H_size = 12;
-  int H_count = 12;
-  H_size += do_calib_ext ? 6 : 0;
-  H_size += do_calib_dt ? 1 : 0;
-  H_size += do_calib_int ? 3 : 0;
-  result.H = Eigen::MatrixXd::Zero(6, H_size);
+  H = Eigen::MatrixXd::Zero(6, 12);
 
   const Eigen::Vector3d pI0inG_fej = pose0.pos_fej;
   const Eigen::Vector3d pI1inG_fej = pose1.pos_fej;
   const Eigen::Matrix3d RGtoI0_fej = pose0.rot_fej;
   const Eigen::Matrix3d RGtoI1_fej = pose1.rot_fej;
-  RO0toO1 = RItoO * RGtoI1_fej * RGtoI0_fej.transpose() * RItoO.transpose();
-  RO1toO0 = RO0toO1.transpose();
 
   const Eigen::Matrix3d dzr_dth0 = -RItoO * RGtoI1_fej * RGtoI0_fej.transpose();
   const Eigen::Matrix3d dzr_dth1 = RItoO;
@@ -720,36 +587,10 @@ void WheelProcess::compute_linear_system_3D(const WheelPoseState &pose0,
   const Eigen::Matrix3d dzp_dth1 = -RItoO * RGtoI0_fej * RGtoI1_fej.transpose() * skew_sym_mat(pOinI);
   const Eigen::Matrix3d dzp_dp1 = RItoO * RGtoI0_fej;
 
-  result.H.block<3, 3>(0, 0) = dzr_dth0;
-  result.H.block<3, 3>(0, 6) = dzr_dth1;
-  result.H.block<3, 3>(3, 0) = dzp_dth0;
-  result.H.block<3, 3>(3, 3) = dzp_dp0;
-  result.H.block<3, 3>(3, 6) = dzp_dth1;
-  result.H.block<3, 3>(3, 9) = dzp_dp1;
-
-  if (do_calib_ext)
-  {
-    const Eigen::Matrix3d dzr_dthcalib = Eigen::Matrix3d::Identity() - RO0toO1;
-    const Eigen::Matrix3d dzp_dpcalib = -RO1toO0 + Eigen::Matrix3d::Identity();
-    const Eigen::Vector3d dzp_dthcalib_arg = RItoO * RGtoI0_fej * (pI1inG_fej - pI0inG_fej) - RO1toO0 * pIinO;
-    const Eigen::Matrix3d dzp_dthcalib = skew_sym_mat(dzp_dthcalib_arg) + RO1toO0 * skew_sym_mat(pIinO);
-    result.H.block<3, 3>(0, H_count) = dzr_dthcalib;
-    result.H.block<3, 3>(3, H_count) = dzp_dthcalib;
-    result.H.block<3, 3>(3, H_count + 3) = dzp_dpcalib;
-    H_count += 6;
-  }
-
-  if (do_calib_dt)
-  {
-    result.H.block<3, 1>(0, H_count) = dzr_dth0 * pose0.ang_vel + dzr_dth1 * pose1.ang_vel;
-    result.H.block<3, 1>(3, H_count) = dzp_dth0 * pose0.ang_vel + dzp_dp0 * pose0.lin_vel +
-                                       dzp_dth1 * pose1.ang_vel + dzp_dp1 * pose1.lin_vel;
-    ++H_count;
-  }
-
-  if (do_calib_int)
-  {
-    result.H.block<3, 3>(0, H_count) = -preintegration_.dR_di_3D;
-    result.H.block<3, 3>(3, H_count) = -preintegration_.dp_di_3D;
-  }
+  H.block<3, 3>(0, 0) = dzr_dth0;
+  H.block<3, 3>(0, 6) = dzr_dth1;
+  H.block<3, 3>(3, 0) = dzp_dth0;
+  H.block<3, 3>(3, 3) = dzp_dp0;
+  H.block<3, 3>(3, 6) = dzp_dth1;
+  H.block<3, 3>(3, 9) = dzp_dp1;
 }
