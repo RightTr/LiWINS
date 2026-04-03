@@ -49,8 +49,7 @@ class WheelProcess
 
   bool Process(const std::deque<WheelMsgConstPtr> &wheel,
                double time0,
-               double time1,
-               WheelPreintegration *result = nullptr);
+               double time1);
   bool select_wheel_data(double time0, double time1, std::vector<WheelMsg> &data_vec) const;
 
   // output residual and Jacobian

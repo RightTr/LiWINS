@@ -212,6 +212,8 @@ void allocateMemory()
 
 void MapOptimizationInit()
 {
+    read_liosam_params();
+
     ISAM2Params parameters;
     parameters.relinearizeThreshold = 0.1;
     parameters.relinearizeSkip = 1;
@@ -504,6 +506,19 @@ void addLoopFactor()
     aLoopIsClosed = true;
 }
 
+void updatePath(const PointPose6D& pose_in)
+{
+    PoseStampedMsg pose_stamped;
+    pose_stamped.header.stamp = get_ros_time(pose_in.time);
+    pose_stamped.header.frame_id = "camera_init";
+    pose_stamped.pose.position.x = pose_in.x;
+    pose_stamped.pose.position.y = pose_in.y;
+    pose_stamped.pose.position.z = pose_in.z;
+    pose_stamped.pose.orientation = quaternion_from_rpy(pose_in.roll, pose_in.pitch, pose_in.yaw);
+
+    globalPath.poses.push_back(pose_stamped);
+}
+
 void saveKeyFramesAndFactor(pcl::PointCloud<pcl::PointXYZINormal>::Ptr feats_undistort)
 {
     if (saveFrame() == false)
@@ -563,6 +578,8 @@ void saveKeyFramesAndFactor(pcl::PointCloud<pcl::PointXYZINormal>::Ptr feats_und
     thisPose6D.time = timeLaserInfoCur;
     cloudKeyPoses6D->push_back(thisPose6D);
 
+    updatePath(thisPose6D);
+
     // cout << "****************************************************" << endl;
     // cout << "Pose covariance:" << endl;
     // cout << isam->marginalCovariance(isamCurrentEstimate.size()-1) << endl << endl;
@@ -585,7 +602,7 @@ void saveKeyFramesAndFactor(pcl::PointCloud<pcl::PointXYZINormal>::Ptr feats_und
         point.x = pointBodyImu(0);
         point.y = pointBodyImu(1);
         point.z = pointBodyImu(2);
-        point.intensity = point.intensity;
+        point.intensity = pt.intensity;
         featCloudKeyFrame->push_back(point);
     }
 
@@ -599,19 +616,6 @@ void saveKeyFramesAndFactor(pcl::PointCloud<pcl::PointXYZINormal>::Ptr feats_und
     } else {
         ikdtreeHistoryKeyPoses->Add_Point(thisPose3D);
     }
-}
-
-void updatePath(const PointPose6D& pose_in)
-{
-    PoseStampedMsg pose_stamped;
-    pose_stamped.header.stamp = get_ros_time(pose_in.time);
-    pose_stamped.header.frame_id = "camera_init";
-    pose_stamped.pose.position.x = pose_in.x;
-    pose_stamped.pose.position.y = pose_in.y;
-    pose_stamped.pose.position.z = pose_in.z;
-    pose_stamped.pose.orientation = quaternion_from_rpy(pose_in.roll, pose_in.pitch, pose_in.yaw);
-
-    globalPath.poses.push_back(pose_stamped);
 }
 
 void ReconstructIkdTree()

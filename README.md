@@ -109,3 +109,5 @@ roslaunch fins mapping_airy.launch
 [Super-LIO](https://github.com/Liansheng-Wang/Super-LIO.git)
 
 [point_lio_unilidar](https://github.com/unitreerobotics/point_lio_unilidar.git)
+
+[MINS](https://github.com/rpng/MINS.git)

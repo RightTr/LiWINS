@@ -61,8 +61,7 @@ void WheelProcess::set_extrinsic(const V3D &transl, const M3D &rot)
 
 bool WheelProcess::Process(const std::deque<WheelMsgConstPtr> &wheel,
                            double time0,
-                           double time1,
-                           WheelPreintegration *result)
+                           double time1)
 {
   for (const auto &msg : wheel)
   {
@@ -106,9 +105,6 @@ bool WheelProcess::Process(const std::deque<WheelMsgConstPtr> &wheel,
       preintegration_2D(dt, data_vec[i], data_vec[i + 1]);
     }
   }
-
-  if (result != nullptr)
-    *result = preintegration_;
   return true;
 }
 

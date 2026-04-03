@@ -3,7 +3,7 @@
 
 	<arg name="rviz" default="true" />
 
-	<rosparam command="load" file="$(find fins)/config/sam/kaist_urban.yaml"/>
+	<rosparam command="load" file="$(find fins)/config/sam/airy.yaml"/>
 
     <param name="sam_enable" type="bool" value="1"/>
 	<param name="feature_extract_enable" type="bool" value="0"/>
