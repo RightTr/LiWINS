@@ -103,7 +103,7 @@ if(USE_ROS1)
     INCLUDE_DIRS
   )
 
-  add_executable(fins
+  add_executable(fins_mapping
     fins/core/main.cpp
     fins/core/laserMapping.cpp
     fins/sensors/preprocess.cpp
@@ -115,11 +115,12 @@ if(USE_ROS1)
     fins/lio_sam/utility.cpp
     fins/lio_sam/mapOptimization.cpp
     fins/ros_interface/ros_interface.cpp)
-  target_link_libraries(fins ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
+  target_link_libraries(fins_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
 endif()
 
 if(USE_ROS2)
   add_definitions(-DUSE_ROS2)
+  find_package(rosidl_default_generators REQUIRED)
   find_package(rclcpp REQUIRED)
   find_package(sensor_msgs REQUIRED)
   find_package(geometry_msgs REQUIRED)
@@ -130,8 +131,15 @@ if(USE_ROS2)
   find_package(tf2_eigen REQUIRED)
   find_package(livox_ros_driver2)
   find_package(visualization_msgs REQUIRED)
+
+  rosidl_generate_interfaces(${PROJECT_NAME}
+    "msg/Pose6D.msg"
+    "msg/Wheel.msg"
+    DEPENDENCIES
+      geometry_msgs
+  )
   
-  add_executable(fins
+  add_executable(fins_mapping
     fins/core/main.cpp
     fins/core/laserMapping.cpp
     fins/sensors/preprocess.cpp
@@ -143,7 +151,7 @@ if(USE_ROS2)
     fins/lio_sam/utility.cpp
     fins/lio_sam/mapOptimization.cpp
     fins/ros_interface/ros_interface.cpp)
-  ament_target_dependencies(fins
+  ament_target_dependencies(fins_mapping
     rclcpp
     sensor_msgs
     geometry_msgs
@@ -156,7 +164,11 @@ if(USE_ROS2)
     livox_ros_driver2
     visualization_msgs
   )
-  target_link_libraries(fins ${PCL_LIBRARIES} gtsam)
+  target_include_directories(fins_mapping PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
+  )
+  rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
+  target_link_libraries(fins_mapping ${PCL_LIBRARIES} gtsam ${cpp_typesupport_target})
   install(
   DIRECTORY
     launch_ROS2
@@ -165,12 +177,14 @@ if(USE_ROS2)
   )
   install(
     FILES
-    rviz_cfg/loam_livox_ros2.rviz
+    rviz_cfg/loam_ros2.rviz
+    rviz_cfg/sam_ros2.rviz
     DESTINATION share/${PROJECT_NAME}/rviz_cfg
   )
-  install(TARGETS fins
+  install(TARGETS fins_mapping
     DESTINATION lib/${PROJECT_NAME})
   install(DIRECTORY fins/ DESTINATION include)
 
+  ament_export_dependencies(rosidl_default_runtime)
   ament_package() # Don't forget this
 endif()

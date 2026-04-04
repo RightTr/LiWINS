@@ -49,13 +49,13 @@ fast_lio_params = [
 def generate_launch_description():
     fins = Node(
         package='fins',
-        executable='fastlio_mapping',
+        executable='fins_mapping',
         output='screen',
         parameters=fast_lio_params,
         prefix='xterm -e gdb -ex run --args'
     )
 
-    fast_lio_rviz = Node(
+    fins_rviz = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
@@ -65,5 +65,5 @@ def generate_launch_description():
     
     return LaunchDescription([
         fins,
-        fast_lio_rviz
+        fins_rviz
     ])
