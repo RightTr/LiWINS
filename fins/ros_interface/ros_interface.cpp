@@ -35,7 +35,6 @@ int    NUM_MAX_ITERATIONS;
 int    pcd_save_interval;
 int    odom_imu_frequency = 100;
 int    lidar_type;
-int    wheel_type;
 
 float  DET_RANGE;
 
@@ -67,12 +66,10 @@ std::shared_ptr<Preprocess> p_pre = std::make_shared<Preprocess>();
 std::shared_ptr<ImuProcess> p_imu = std::make_shared<ImuProcess>();
 std::shared_ptr<WheelProcess> p_wheel = std::make_shared<WheelProcess>();
 
-double wheel_rl = 1.0;
-double wheel_rr = 1.0;
-double wheel_b = 1.0;
-double wheel_noise_w = 0.02;
-double wheel_noise_v = 0.02;
-double wheel_noise_p = 0.02;
+double wheel_sr = 1.0;
+double wheel_sl = 1.0;
+double wheel_noise_x = 0.02;
+double wheel_noise_y = 0.02;
 double wheel_max_history_time = 100.0;
 
 Pcl2Publisher pubLaserCloudFull;
@@ -145,13 +142,10 @@ void load_config()
     rosparam_get("mapping/extrinsic_R", extrinR, std::vector<double>());
     
     rosparam_get("wheel/enable", wheel_en, false);
-    rosparam_get("wheel/wheel_type", wheel_type, 0);
-    rosparam_get("wheel/rl", wheel_rl, 1.0);
-    rosparam_get("wheel/rr", wheel_rr, 1.0);
-    rosparam_get("wheel/b", wheel_b, 1.0);
-    rosparam_get("wheel/noise_w", wheel_noise_w, 0.02);
-    rosparam_get("wheel/noise_v", wheel_noise_v, 0.02);
-    rosparam_get("wheel/noise_p", wheel_noise_p, 0.02);
+    rosparam_get("wheel/sr", wheel_sr, 1.0);
+    rosparam_get("wheel/sl", wheel_sl, 1.0);
+    rosparam_get("wheel/noise_x", wheel_noise_x, 0.02);
+    rosparam_get("wheel/noise_y", wheel_noise_y, 0.02);
     rosparam_get("wheel/max_history_time", wheel_max_history_time, 100.0);
     rosparam_get("wheel/extrinsic_T", wheel_extrinT, std::vector<double>{0.0, 0.0, 0.0});
     rosparam_get("wheel/extrinsic_R", wheel_extrinR, std::vector<double>{1.0, 0.0, 0.0,

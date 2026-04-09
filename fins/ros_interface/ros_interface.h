@@ -26,7 +26,6 @@ extern bool   wheel_en;
 extern int    NUM_MAX_ITERATIONS;
 extern int    pcd_save_interval;
 extern int    lidar_type;
-extern int    wheel_type;
 
 extern float  DET_RANGE;
 
@@ -52,12 +51,10 @@ extern std::shared_ptr<Preprocess> p_pre;
 extern std::shared_ptr<ImuProcess> p_imu;
 extern std::shared_ptr<WheelProcess> p_wheel;
 
-extern double wheel_rl;
-extern double wheel_rr;
-extern double wheel_b;
-extern double wheel_noise_w;
-extern double wheel_noise_v;
-extern double wheel_noise_p;
+extern double wheel_sr;
+extern double wheel_sl;
+extern double wheel_noise_x;
+extern double wheel_noise_y;
 extern double wheel_max_history_time;
 
 extern std::atomic<bool>  relocalize_flag;

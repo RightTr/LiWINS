@@ -39,6 +39,8 @@ cd src/LI-pipline
 # ROS2 build
 cd src/LI-pipline
 ./build.sh humble
+
+colcon build   --parallel-workers $NUM_CORES
 ```
 
 ## ✨ Features

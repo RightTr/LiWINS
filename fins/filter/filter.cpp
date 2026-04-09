@@ -191,8 +191,7 @@ bool update(esekfom::esekf<state_ikfom, 12, input_ikfom>& kf_state,
     Eigen::VectorXd wheel_res;
     wheel_process.ComputeLinearSystem(pose0, pose1, wheel_H, wheel_res);
 
-    const bool is_3d = wheel_process.wheel_type == Wheel3DAng || wheel_process.wheel_type == Wheel3DLin || wheel_process.wheel_type == Wheel3DCen;
-    MatrixXd wheel_cov = is_3d ? MatrixXd(wheel_process.latest_result().Cov_3D) : MatrixXd(wheel_process.latest_result().Cov_2D);
+    MatrixXd wheel_cov = MatrixXd(wheel_process.latest_result().Cov_2D);
 
     MatrixXd H = MatrixXd::Zero(wheel_H.rows(), state_ikfom::DOF);
     H.block(0, clone_rot_idx, wheel_H.rows(), 3) = wheel_H.block(0, 0, wheel_H.rows(), 3);

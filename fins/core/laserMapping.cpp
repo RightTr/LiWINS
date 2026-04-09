@@ -41,10 +41,8 @@ void LaserMapping::init()
     p_imu->set_acc_bias_cov(V3D(b_acc_cov, b_acc_cov, b_acc_cov));
 
     p_imu->lidar_type = lidar_type;
-    p_wheel->wheel_type = wheel_type;
-
-    p_wheel->set_intrinsic(wheel_rl, wheel_rr, wheel_b);
-    p_wheel->set_noise(wheel_noise_w, wheel_noise_v, wheel_noise_p);
+    p_wheel->set_intrinsic(wheel_sr, wheel_sl);
+    p_wheel->set_noise(wheel_noise_x, wheel_noise_y);
     p_wheel->set_history_time(wheel_max_history_time);
     p_wheel->set_extrinsic(Wheel_T_wrt_IMU_, Wheel_R_wrt_IMU_);
 
