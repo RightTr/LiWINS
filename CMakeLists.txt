@@ -65,7 +65,7 @@ set(LIWINS_CORE_SOURCES
   liwins/lio_sam/utility.cpp
   liwins/lio_sam/mapOptimization.cpp
   liwins/ros_interface/ros_interface.cpp
-  liwins/calib/lidar_imu_wheel_init.cpp)
+  liwins/calib/LWI_init.cpp)
 
 set(LIWINS_APP
   liwins/app/liwins.cpp)

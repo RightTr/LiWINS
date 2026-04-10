@@ -8,7 +8,7 @@
 
 #include <gtsam/inference/Symbol.h>
 
-#include "calib/lidar_imu_wheel_init.h"
+#include "calib/LWI_init.h"
 #include "map/ikd-Tree/ikd_Tree.hpp"
 #include "map/pointMapBase.hpp"
 #include "ros_interface/ros_interface.h"
