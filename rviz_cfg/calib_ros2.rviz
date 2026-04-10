@@ -8,8 +8,12 @@ Panels:
         - /Status1
         - /Points_accumulated1/PointCloud21
         - /Path1/Topic1
+        - /Odometry1
+        - /Odometry1/Shape1
         - /Axes1
-        - /Odometry2
+        - /Wheel_Integration1
+        - /Wheel_Integration1/Shape1
+        - /Wheel_Path1
       Splitter Ratio: 0.5
     Tree Height: 1009
   - Class: rviz_common/Selection
@@ -68,7 +72,7 @@ Visualization Manager:
           Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 150
+          Max Intensity: 151.1999969482422
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: PointCloud2
@@ -106,7 +110,7 @@ Visualization Manager:
           Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 150
+          Max Intensity: 151.1999969482422
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: PointCloud2
@@ -213,7 +217,7 @@ Visualization Manager:
       Shape:
         Alpha: 1
         Axes Length: 1
-        Axes Radius: 0.10000000149011612
+        Axes Radius: 0.009999999776482582
         Color: 255; 25; 0
         Head Length: 0.30000001192092896
         Head Radius: 0.10000000149011612
@@ -253,52 +257,13 @@ Visualization Manager:
           Value: true
         Value: true
       Enabled: false
-      Keep: 1
-      Name: HighFreqOdometry
-      Position Tolerance: 0.10000000149011612
-      Shape:
-        Alpha: 1
-        Axes Length: 1
-        Axes Radius: 0.10000000149011612
-        Color: 255; 25; 0
-        Head Length: 0.30000001192092896
-        Head Radius: 0.10000000149011612
-        Shaft Length: 1
-        Shaft Radius: 0.05000000074505806
-        Value: Axes
-      Topic:
-        Depth: 5
-        Durability Policy: Volatile
-        Filter size: 10
-        History Policy: Keep Last
-        Reliability Policy: Reliable
-        Value: /OdometryHighFreq
-      Value: false
-    - Angle Tolerance: 0.10000000149011612
-      Class: rviz_default_plugins/Odometry
-      Covariance:
-        Orientation:
-          Alpha: 0.5
-          Color: 255; 255; 127
-          Color Style: Unique
-          Frame: Local
-          Offset: 1
-          Scale: 1
-          Value: true
-        Position:
-          Alpha: 0.30000001192092896
-          Color: 204; 51; 204
-          Scale: 1
-          Value: true
-        Value: true
-      Enabled: false
       Keep: 100
-      Name: Odometry
+      Name: Wheel_Integration
       Position Tolerance: 0.10000000149011612
       Shape:
         Alpha: 1
         Axes Length: 1
-        Axes Radius: 0.10000000149011612
+        Axes Radius: 0.009999999776482582
         Color: 255; 25; 0
         Head Length: 0.30000001192092896
         Head Radius: 0.10000000149011612
@@ -316,14 +281,14 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz_default_plugins/Path
-      Color: 25; 255; 0
+      Color: 229; 165; 10
       Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
       Line Style: Lines
       Line Width: 0.029999999329447746
-      Name: Path
+      Name: Wheel_Path
       Offset:
         X: 0
         Y: 0
@@ -387,25 +352,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 23.399269104003906
+      Distance: 5.276557445526123
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.33916640281677246
-        Y: 0.044091612100601196
-        Z: -0.2277018129825592
+        X: -1.819209098815918
+        Y: -0.2599835991859436
+        Z: 0.9281713962554932
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.1947969198226929
+      Pitch: 1.0447968244552612
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.3485629558563232
+      Yaw: 3.29854416847229
     Saved: ~
 Window Geometry:
   Displays:
@@ -423,5 +388,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1920
-  X: 3081
-  Y: 85
+  X: 2850
+  Y: 206

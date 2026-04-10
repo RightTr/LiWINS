@@ -37,12 +37,12 @@ wheel:
     sl: 0.3
     sr: 0.3
     extrinsic_T: [-0.225, 0.411]
-    extrinsic_Theta: 45.0  # deg, load_config里会转成rad
+    extrinsic_Theta: 135.0  # deg
 
 calib:
-    init_frames: 40
+    init_frames: 1
     window_size: 25
-    optimize_every_n: 5
+    optimize_every_n: 1
     optimize_max_iterations: 30
     lidar_point_cov: 0.001
     first_pose_prior_sigma: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]

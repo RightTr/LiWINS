@@ -41,9 +41,9 @@ void LIWINSCalib::init()
   std::vector<double> wheel_scale_prior_sigma;
   std::vector<double> wheel_factor_sigma;
 
-  rosparam_get("calib/init_frames", init_frames_, 40);
+  rosparam_get("calib/init_frames", init_frames_, 1);
   rosparam_get("calib/window_size", window_size_, 25);
-  rosparam_get("calib/optimize_every_n", optimize_every_n_, 5);
+  rosparam_get("calib/optimize_every_n", optimize_every_n_, 1);
   rosparam_get("calib/optimize_max_iterations", optimize_max_iterations_, 30);
   rosparam_get("calib/lidar_point_cov", lidar_point_cov_, 0.001);
   rosparam_get("calib/first_pose_prior_sigma", first_pose_prior_sigma, std::vector<double>{});

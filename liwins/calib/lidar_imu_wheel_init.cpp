@@ -249,7 +249,7 @@ void LidarImuWheelInitGraph::addWheelFactor(std::size_t frame_idx,
       gtsam::noiseModel::Diagonal::Sigmas(config_.wheel_factor_sigma)));
 }
 
-void LidarImuWheelInitGraph::addLidarFactors(std::size_t frame_idx,
+void LidarImuWheelInitGraph::addLidarFactor(std::size_t frame_idx,
                                              const LWIKeyframe &keyframe)
 {
   const gtsam::Key pose_key = gtsam::Symbol('x', frame_idx);
@@ -282,7 +282,7 @@ void LidarImuWheelInitGraph::AddKeyframe(const LWIKeyframe &keyframe)
     addImuFactor(frame_idx, keyframe);
 
   addWheelFactor(frame_idx, keyframe);
-  addLidarFactors(frame_idx, keyframe);
+  addLidarFactor(frame_idx, keyframe);
   ++keyframe_count_;
 }
 

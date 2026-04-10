@@ -76,9 +76,9 @@ class LIWINSCalib
   std::unique_ptr<LidarImuWheelInitGraph> init_graph_;
   std::deque<LWIKeyframe> keyframes_;
   InitGraphResult result_;
-  int init_frames_ = 40;
+  int init_frames_ = 1;
   int window_size_ = 25;
-  int optimize_every_n_ = 5;
+  int optimize_every_n_ = 1;
   int frames_since_last_optimize_ = 0;
   int optimize_max_iterations_ = 30;
   double lidar_point_cov_ = 0.001;

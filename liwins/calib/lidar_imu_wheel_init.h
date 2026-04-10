@@ -137,10 +137,6 @@ class LidarImuWheelInitGraph
   void Reset();
   void AddKeyframe(const LWIKeyframe &keyframe);
 
-  const gtsam::NonlinearFactorGraph &graph() const { return graph_; }
-  const gtsam::Values &initial_values() const { return initial_values_; }
-  std::size_t keyframe_count() const { return keyframe_count_; }
-
   InitGraphResult Optimize(const gtsam::LevenbergMarquardtParams &params = gtsam::LevenbergMarquardtParams());
 
   gtsam::Key wheel_extrinsic_key() const { return wheel_extrinsic_key_; }
@@ -151,7 +147,7 @@ class LidarImuWheelInitGraph
   void addFirstStatePriors(std::size_t frame_idx, const LWIKeyframe &keyframe);
   void addImuFactor(std::size_t frame_idx, const LWIKeyframe &keyframe);
   void addWheelFactor(std::size_t frame_idx, const LWIKeyframe &keyframe);
-  void addLidarFactors(std::size_t frame_idx, const LWIKeyframe &keyframe);
+  void addLidarFactor(std::size_t frame_idx, const LWIKeyframe &keyframe);
 
   InitGraphConfig config_;
   gtsam::NonlinearFactorGraph graph_;
