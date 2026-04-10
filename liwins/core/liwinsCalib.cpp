@@ -41,7 +41,6 @@ void LIWINSCalib::init()
   std::vector<double> wheel_scale_prior_sigma;
   std::vector<double> wheel_factor_sigma;
 
-  rosparam_get("calib/init_frames", init_frames_, 1);
   rosparam_get("calib/window_size", window_size_, 25);
   rosparam_get("calib/optimize_every_n", optimize_every_n_, 1);
   rosparam_get("calib/optimize_max_iterations", optimize_max_iterations_, 30);
@@ -114,7 +113,6 @@ void LIWINSCalib::init()
   graph_config_.wheel_scale_prior_sigma << wheel_scale_prior_sigma[0], wheel_scale_prior_sigma[1];
   graph_config_.wheel_factor_sigma << wheel_factor_sigma[0], wheel_factor_sigma[1];
 
-  init_graph_ = std::make_unique<LidarImuWheelInitGraph>(graph_config_);
 }
 
 void LIWINSCalib::init_state()
@@ -178,8 +176,9 @@ void LIWINSCalib::run()
       continue;
     }
 
+    const bool has_optimized = !result_.values.empty();
     const M3D R_WI_prev = state_curr_.rot.toRotationMatrix();
-    if (wheel_en && has_result_)
+    if (wheel_en && has_optimized)
     {
       WheelPreintegration wheel_integrated;
       wheel_integrated.start_time = wheel_last_lidar_time_;
@@ -197,9 +196,6 @@ void LIWINSCalib::run()
       publish_wheel_integration(wheel_integrated);
       publish_wheel_path(wheel_integrated_x_, wheel_integrated_y_, 0.0, wheel_integrated.end_time);
     }
-
-    const double integration_beg_time =
-        last_integration_end_time_ > 0.0 ? last_integration_end_time_ : Measures_.lidar_beg_time;
 
     state_ikfom end_state = state_curr_;
     std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> imu_preintegration;
@@ -223,7 +219,6 @@ void LIWINSCalib::run()
     publish_world_cloud(dense_pub_en ? feats_undistort_ : feats_down_body_, lidar_end_time_, "camera_init", state_curr_);
     if (scan_body_pub_en) publish_body_cloud(feats_undistort_, lidar_end_time_, "body", state_curr_);
     wheel_last_lidar_time_ = lidar_end_time_;
-    last_integration_end_time_ = lidar_end_time_;
   }
 }
 
@@ -365,11 +360,8 @@ void LIWINSCalib::append_keyframe(
   keyframes_.push_back(keyframe);
   ++frames_since_last_optimize_;
 
-  if (has_result_)
-  {
-    while (static_cast<int>(keyframes_.size()) > window_size_)
-      keyframes_.pop_front();
-  }
+  while (static_cast<int>(keyframes_.size()) > window_size_)
+    keyframes_.pop_front();
 }
 
 void LIWINSCalib::map_incremental()
@@ -399,27 +391,26 @@ void LIWINSCalib::map_incremental()
 
 void LIWINSCalib::optimize()
 {
-  const bool ready_to_optimize =
-      has_result_ ? (frames_since_last_optimize_ >= optimize_every_n_) :
-                    (static_cast<int>(keyframes_.size()) >= init_frames_);
-  if (!ready_to_optimize)
+  if (keyframes_.empty())
+    return;
+  const bool has_optimized = !result_.values.empty();
+  if (has_optimized && frames_since_last_optimize_ < optimize_every_n_)
     return;
 
-  if (has_result_)
+  if (has_optimized)
   {
     graph_config_.initial_wheel_pose_in_imu = result_.wheel_pose_in_imu;
     graph_config_.initial_wheel_scales = result_.wheel_scales;
   }
 
-  init_graph_ = std::make_unique<LidarImuWheelInitGraph>(graph_config_);
+  LidarImuWheelInitGraph init_graph(graph_config_);
   for (const auto &keyframe : keyframes_)
-    init_graph_->AddKeyframe(keyframe);
+    init_graph.AddKeyframe(keyframe);
 
   auto lm_params = gtsam::LevenbergMarquardtParams();
   lm_params.maxIterations = optimize_max_iterations_;
-  const bool first_optimization = !has_result_;
-  result_ = init_graph_->Optimize(lm_params);
-  has_result_ = true;
+  const bool first_optimization = !has_optimized;
+  result_ = init_graph.Optimize(lm_params);
   frames_since_last_optimize_ = 0;
 
   for (std::size_t i = 0; i < keyframes_.size(); ++i)

@@ -9,12 +9,8 @@
 #include <gtsam/navigation/ImuFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 
-namespace
-{
-
-template <typename WheelContainer>
-Eigen::Vector2d integrate_wheel_delta_impl(
-    const WheelContainer &wheel_msgs,
+Eigen::Vector2d integrate_wheel_delta(
+    const std::deque<WheelMsgConstPtr> &wheel_msgs,
     double sr,
     double sl)
 {
@@ -37,16 +33,6 @@ Eigen::Vector2d integrate_wheel_delta_impl(
   }
 
   return delta;
-}
-
-} // namespace
-
-Eigen::Vector2d integrate_wheel_delta(
-    const std::deque<WheelMsgConstPtr> &wheel_msgs,
-    double sr,
-    double sl)
-{
-  return integrate_wheel_delta_impl(wheel_msgs, sr, sl);
 }
 
 WheelFactor::WheelFactor(gtsam::Key pose0_key,

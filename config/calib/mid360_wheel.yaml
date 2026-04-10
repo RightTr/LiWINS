@@ -40,7 +40,6 @@ wheel:
     extrinsic_Theta: 135.0  # deg
 
 calib:
-    init_frames: 1
     window_size: 25
     optimize_every_n: 1
     optimize_max_iterations: 30

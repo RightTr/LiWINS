@@ -24,7 +24,7 @@ class LIWINSCalib
   void run();
   void set_exit() { flg_exit_ = true; }
 
-  bool has_result() const { return has_result_; }
+  bool has_result() const { return !result_.values.empty(); }
   const InitGraphResult &result() const { return result_; }
 
  private:
@@ -55,13 +55,10 @@ class LIWINSCalib
   bool flg_first_scan_ = true;
   bool flg_exit_ = false;
   bool lidar_pushed_ = false;
-  bool has_result_ = false;
 
   double lidar_end_time_ = 0.0;
   double first_lidar_time_ = 0.0;
   double lidar_mean_scantime_ = 0.0;
-  double last_integration_end_time_ = -1.0;
-  double last_published_imu_pose_time_ = -1.0;
   double wheel_last_lidar_time_ = -1.0;
   double wheel_integrated_x_ = 0.0;
   double wheel_integrated_y_ = 0.0;
@@ -73,10 +70,8 @@ class LIWINSCalib
   M3D Wheel_R_wrt_IMU_{Eye3d};
 
   InitGraphConfig graph_config_;
-  std::unique_ptr<LidarImuWheelInitGraph> init_graph_;
   std::deque<LWIKeyframe> keyframes_;
   InitGraphResult result_;
-  int init_frames_ = 1;
   int window_size_ = 25;
   int optimize_every_n_ = 1;
   int frames_since_last_optimize_ = 0;
