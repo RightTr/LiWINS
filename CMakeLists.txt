@@ -143,7 +143,6 @@ if(USE_ROS2)
   find_package(nav_msgs REQUIRED)
   find_package(tf2_ros REQUIRED)
   find_package(pcl_conversions REQUIRED)
-  find_package(fast_lio_interfaces REQUIRED)
   find_package(tf2_eigen REQUIRED)
   find_package(livox_ros_driver2)
   find_package(visualization_msgs REQUIRED)
@@ -169,7 +168,6 @@ if(USE_ROS2)
     tf2_ros
     pcl_conversions
     PCL
-    fast_lio_interfaces
     tf2_eigen
     livox_ros_driver2
     visualization_msgs
@@ -182,7 +180,6 @@ if(USE_ROS2)
     tf2_ros
     pcl_conversions
     PCL
-    fast_lio_interfaces
     tf2_eigen
     livox_ros_driver2
     visualization_msgs
