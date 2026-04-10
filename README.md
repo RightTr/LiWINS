@@ -1,4 +1,4 @@
-# LIWINS: LiDAR-Inertial-Wheel Navigation System
+# LiWINS: LiDAR-Wheel-Inertial Navigation System
 
 ## ⏰ Wait to be updated ...
 

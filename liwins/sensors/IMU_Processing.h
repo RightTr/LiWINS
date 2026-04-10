@@ -52,7 +52,7 @@ class ImuProcess
 
   Eigen::Matrix<double, 12, 12> Q;
   void Process(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr pcl_un_);
-  void ProcessPureIntegration(const MeasureGroup &meas,
+  void ProcessIntegration(const MeasureGroup &meas,
                               const state_ikfom &start_state,
                               state_ikfom &end_state,
                               PointCloudXYZI::Ptr pcl_un_,

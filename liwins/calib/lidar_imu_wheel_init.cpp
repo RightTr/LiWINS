@@ -9,11 +9,51 @@
 #include <gtsam/navigation/ImuFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 
+namespace
+{
+
+template <typename WheelContainer>
+Eigen::Vector2d integrate_wheel_delta_impl(
+    const WheelContainer &wheel_msgs,
+    double sr,
+    double sl)
+{
+  Eigen::Vector2d delta = Eigen::Vector2d::Zero();
+  if (wheel_msgs.size() < 2)
+    return delta;
+
+  for (std::size_t i = 0; i + 1 < wheel_msgs.size(); ++i)
+  {
+    const double dt = wheel_msgs[i + 1]->timestamp - wheel_msgs[i]->timestamp;
+    if (dt <= 0.0)
+      continue;
+
+    const double vx0 = sr * wheel_msgs[i]->encoder1;
+    const double vy0 = sl * wheel_msgs[i]->encoder2;
+    const double vx1 = sr * wheel_msgs[i + 1]->encoder1;
+    const double vy1 = sl * wheel_msgs[i + 1]->encoder2;
+    delta.x() += 0.5 * (vx0 + vx1) * dt;
+    delta.y() += 0.5 * (vy0 + vy1) * dt;
+  }
+
+  return delta;
+}
+
+} // namespace
+
+Eigen::Vector2d integrate_wheel_delta(
+    const std::deque<WheelMsgConstPtr> &wheel_msgs,
+    double sr,
+    double sl)
+{
+  return integrate_wheel_delta_impl(wheel_msgs, sr, sl);
+}
+
 WheelFactor::WheelFactor(gtsam::Key pose0_key,
                          gtsam::Key pose1_key,
                          gtsam::Key wheel_extrinsic_key,
                          gtsam::Key wheel_scale_key,
-                         const std::vector<WheelMsgConstPtr> &wheel_msgs,
+                         const std::deque<WheelMsgConstPtr> &wheel_msgs,
                          const gtsam::SharedNoiseModel &noise_model)
     : Base(noise_model, pose0_key, pose1_key, wheel_extrinsic_key, wheel_scale_key),
       wheel_msgs_(wheel_msgs)
@@ -25,20 +65,8 @@ gtsam::Vector2 WheelFactor::evaluateResidual(const gtsam::Pose3 &pose0,
                                              const gtsam::Pose2 &wheel_pose_in_imu,
                                              const gtsam::Point2 &wheel_scales) const
 {
-  gtsam::Vector2 wheel_delta = gtsam::Vector2::Zero();
-  for (std::size_t i = 0; i + 1 < wheel_msgs_.size(); ++i)
-  {
-    const double dt = wheel_msgs_[i + 1]->timestamp - wheel_msgs_[i]->timestamp;
-    if (dt <= 0.0)
-      continue;
-
-    const double vx0 = wheel_scales.x() * wheel_msgs_[i]->encoder1;
-    const double vy0 = wheel_scales.y() * wheel_msgs_[i]->encoder2;
-    const double vx1 = wheel_scales.x() * wheel_msgs_[i + 1]->encoder1;
-    const double vy1 = wheel_scales.y() * wheel_msgs_[i + 1]->encoder2;
-    wheel_delta.x() += 0.5 * (vx0 + vx1) * dt;
-    wheel_delta.y() += 0.5 * (vy0 + vy1) * dt;
-  }
+  const gtsam::Vector2 wheel_delta =
+      integrate_wheel_delta(wheel_msgs_, wheel_scales.x(), wheel_scales.y());
 
   const Eigen::Matrix3d R_WI0 = pose0.rotation().matrix();
   const Eigen::Matrix3d R_WI1 = pose1.rotation().matrix();
@@ -173,7 +201,7 @@ void LidarImuWheelInitGraph::addCalibrationPriors()
 }
 
 void LidarImuWheelInitGraph::addFirstStatePriors(std::size_t frame_idx,
-                                                 const InitKeyframe &keyframe)
+                                                 const LWIKeyframe &keyframe)
 {
   const gtsam::Key pose_key = gtsam::Symbol('x', frame_idx);
   const gtsam::Key vel_key = gtsam::Symbol('v', frame_idx);
@@ -191,7 +219,7 @@ void LidarImuWheelInitGraph::addFirstStatePriors(std::size_t frame_idx,
 }
 
 void LidarImuWheelInitGraph::addImuFactor(std::size_t frame_idx,
-                                          const InitKeyframe &keyframe)
+                                          const LWIKeyframe &keyframe)
 {
   if (frame_idx == 0 || !keyframe.imu_preintegration)
     return;
@@ -207,7 +235,7 @@ void LidarImuWheelInitGraph::addImuFactor(std::size_t frame_idx,
 }
 
 void LidarImuWheelInitGraph::addWheelFactor(std::size_t frame_idx,
-                                            const InitKeyframe &keyframe)
+                                            const LWIKeyframe &keyframe)
 {
   if (frame_idx == 0 || keyframe.wheel_msgs.size() < 2)
     return;
@@ -222,7 +250,7 @@ void LidarImuWheelInitGraph::addWheelFactor(std::size_t frame_idx,
 }
 
 void LidarImuWheelInitGraph::addLidarFactors(std::size_t frame_idx,
-                                             const InitKeyframe &keyframe)
+                                             const LWIKeyframe &keyframe)
 {
   const gtsam::Key pose_key = gtsam::Symbol('x', frame_idx);
   for (const auto &observation : keyframe.lidar_obs)
@@ -235,7 +263,7 @@ void LidarImuWheelInitGraph::addLidarFactors(std::size_t frame_idx,
   }
 }
 
-void LidarImuWheelInitGraph::AddKeyframe(const InitKeyframe &keyframe)
+void LidarImuWheelInitGraph::AddKeyframe(const LWIKeyframe &keyframe)
 {
   addCalibrationPriors();
 

@@ -60,17 +60,17 @@ std::string reloc_topic;
 std::vector<double> Lidar_extrinT;
 std::vector<double> Lidar_extrinR;
 std::vector<double> wheel_extrinT;
-double wheel_extrinTheta = 0.0;
+double wheel_extrinTheta;
 
 std::shared_ptr<Preprocess> p_pre = std::make_shared<Preprocess>();
 std::shared_ptr<ImuProcess> p_imu = std::make_shared<ImuProcess>();
 std::shared_ptr<WheelProcess> p_wheel = std::make_shared<WheelProcess>();
 
-double wheel_sr = 1.0;
-double wheel_sl = 1.0;
-double wheel_noise_x = 0.02;
-double wheel_noise_y = 0.02;
-double wheel_max_history_time = 100.0;
+double wheel_sr;
+double wheel_sl;
+double wheel_noise_x;
+double wheel_noise_y;
+double wheel_max_history_time;
 
 Pcl2Publisher pubLaserCloudFull;
 Pcl2Publisher pubLaserCloudFull_body;
@@ -79,6 +79,8 @@ Pcl2Publisher pubLaserCloudMap;
 OdomPublisher pubOdomAftMapped;
 PathPublisher pubPath;
 OdomPublisher pubOdomHighFreq;
+OdomPublisher pubWheelIntegrated;
+PathPublisher pubWheelPath;
 
 Pcl2Subscriber sub_pcl_standard;
 LivoxSubscriber sub_pcl_livox;
@@ -88,7 +90,9 @@ WheelSubscriber sub_wheel;
 
 OdometryMsg odomAftMapped;
 PathMsg path;
+PathMsg wheel_path;
 PoseStampedMsg msgBodyPose;
+PoseStampedMsg msgWheelPose;
 
 double timediff_lidar_wrt_imu = 0.0;
 bool timediff_set_flg = false;
@@ -185,6 +189,8 @@ void register_pub_sub()
     pubOdomAftMapped = create_publisher_qos<OdometryMsg>("/Odometry", odom_qos);
     pubPath = create_publisher_qos<PathMsg>("/path", odom_qos);
     pubOdomHighFreq = create_publisher_qos<OdometryMsg>("/OdometryHighFreq", odom_qos);
+    pubWheelIntegrated = create_publisher_qos<OdometryMsg>("/wheel_integrated", odom_qos);
+    pubWheelPath = create_publisher_qos<PathMsg>("/wheel_path", odom_qos);
 }
 
 void standard_pcl_cbk(const Pcl2MsgConstPtr msg)
@@ -468,4 +474,38 @@ void publish_odometryhighfreq(const Pose& pose)
     static tf2_ros::TransformBroadcaster br_hf(get_ros_node());
 #endif
     br_hf.sendTransform(tf_msg);
+}
+
+void publish_wheel_integration(const WheelPreintegration& wheel_preintegration)
+{
+    OdometryMsg msg;
+    msg.header.stamp = get_ros_time(wheel_preintegration.end_time);
+    msg.header.frame_id = "camera_init";
+    msg.child_frame_id = "wheel";
+    msg.pose.pose.position.x = wheel_preintegration.x_2D;
+    msg.pose.pose.position.y = wheel_preintegration.y_2D;
+    msg.pose.pose.position.z = 0.0;
+    msg.pose.pose.orientation.w = 1.0;
+    msg.pose.covariance[0] = wheel_preintegration.Cov_2D(0, 0);
+    msg.pose.covariance[1] = wheel_preintegration.Cov_2D(0, 1);
+    msg.pose.covariance[6] = wheel_preintegration.Cov_2D(1, 0);
+    msg.pose.covariance[7] = wheel_preintegration.Cov_2D(1, 1);
+    ros_publish(pubWheelIntegrated, msg);
+}
+
+void publish_wheel_path(double x, double y, double z, double timestamp)
+{
+    msgWheelPose.header.stamp = get_ros_time(timestamp);
+    msgWheelPose.header.frame_id = "camera_init";
+    msgWheelPose.pose.position.x = x;
+    msgWheelPose.pose.position.y = y;
+    msgWheelPose.pose.position.z = z;
+    msgWheelPose.pose.orientation.x = 0.0;
+    msgWheelPose.pose.orientation.y = 0.0;
+    msgWheelPose.pose.orientation.z = 0.0;
+    msgWheelPose.pose.orientation.w = 1.0;
+    wheel_path.poses.push_back(msgWheelPose);
+    wheel_path.header.stamp = msgWheelPose.header.stamp;
+    wheel_path.header.frame_id = "camera_init";
+    ros_publish(pubWheelPath, wheel_path);
 }

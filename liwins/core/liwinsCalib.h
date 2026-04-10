@@ -1,5 +1,6 @@
 #pragma once
 
+#include <deque>
 #include <memory>
 #include <vector>
 
@@ -35,7 +36,6 @@ class LIWINSCalib
   void append_keyframe(
       const std::vector<optimizeLidarObs> &observations,
       const std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> &imu_preintegration = nullptr);
-  void apply_latest_optimized_state();
   void publish_integrated_poses(double integration_beg_time);
   void map_incremental();
   void optimize();
@@ -62,6 +62,9 @@ class LIWINSCalib
   double lidar_mean_scantime_ = 0.0;
   double last_integration_end_time_ = -1.0;
   double last_published_imu_pose_time_ = -1.0;
+  double wheel_last_lidar_time_ = -1.0;
+  double wheel_integrated_x_ = 0.0;
+  double wheel_integrated_y_ = 0.0;
   int scan_num_ = 0;
 
   V3D Lidar_T_wrt_IMU_{Zero3d};
@@ -71,8 +74,12 @@ class LIWINSCalib
 
   InitGraphConfig graph_config_;
   std::unique_ptr<LidarImuWheelInitGraph> init_graph_;
+  std::deque<LWIKeyframe> keyframes_;
   InitGraphResult result_;
-  int min_init_frames_ = 10;
+  int init_frames_ = 40;
+  int window_size_ = 25;
+  int optimize_every_n_ = 5;
+  int frames_since_last_optimize_ = 0;
   int optimize_max_iterations_ = 30;
   double lidar_point_cov_ = 0.001;
 };

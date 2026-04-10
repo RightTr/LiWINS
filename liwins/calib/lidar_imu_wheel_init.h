@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <deque>
 #include <vector>
 
 #include <boost/optional.hpp>
@@ -25,14 +26,14 @@ struct optimizeLidarObs
   double sigma = 0.05;
 };
 
-struct InitKeyframe
+struct LWIKeyframe
 {
   double timestamp = 0.0;
   gtsam::Pose3 initial_pose;
   gtsam::Vector3 initial_velocity = gtsam::Vector3::Zero();
   gtsam::imuBias::ConstantBias initial_bias;
   std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> imu_preintegration;
-  std::vector<WheelMsgConstPtr> wheel_msgs;
+  std::deque<WheelMsgConstPtr> wheel_msgs;
   std::vector<optimizeLidarObs> lidar_obs;
 };
 
@@ -70,6 +71,11 @@ struct InitGraphResult
   gtsam::Point2 wheel_scales;
 };
 
+Eigen::Vector2d integrate_wheel_delta(
+    const std::deque<WheelMsgConstPtr> &wheel_msgs,
+    double sr,
+    double sl);
+
 class WheelFactor
     : public gtsam::NoiseModelFactor4<gtsam::Pose3, gtsam::Pose3, gtsam::Pose2, gtsam::Point2>
 {
@@ -80,7 +86,7 @@ class WheelFactor
               gtsam::Key pose1_key,
               gtsam::Key wheel_extrinsic_key,
               gtsam::Key wheel_scale_key,
-              const std::vector<WheelMsgConstPtr> &wheel_msgs,
+              const std::deque<WheelMsgConstPtr> &wheel_msgs,
               const gtsam::SharedNoiseModel &noise_model);
 
   gtsam::Vector evaluateError(
@@ -99,7 +105,7 @@ class WheelFactor
                                   const gtsam::Pose2 &wheel_pose_in_imu,
                                   const gtsam::Point2 &wheel_scales) const;
 
-  std::vector<WheelMsgConstPtr> wheel_msgs_;
+  std::deque<WheelMsgConstPtr> wheel_msgs_;
 };
 
 class LidarFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>
@@ -129,7 +135,7 @@ class LidarImuWheelInitGraph
   explicit LidarImuWheelInitGraph(const InitGraphConfig &config);
 
   void Reset();
-  void AddKeyframe(const InitKeyframe &keyframe);
+  void AddKeyframe(const LWIKeyframe &keyframe);
 
   const gtsam::NonlinearFactorGraph &graph() const { return graph_; }
   const gtsam::Values &initial_values() const { return initial_values_; }
@@ -142,10 +148,10 @@ class LidarImuWheelInitGraph
 
  private:
   void addCalibrationPriors();
-  void addFirstStatePriors(std::size_t frame_idx, const InitKeyframe &keyframe);
-  void addImuFactor(std::size_t frame_idx, const InitKeyframe &keyframe);
-  void addWheelFactor(std::size_t frame_idx, const InitKeyframe &keyframe);
-  void addLidarFactors(std::size_t frame_idx, const InitKeyframe &keyframe);
+  void addFirstStatePriors(std::size_t frame_idx, const LWIKeyframe &keyframe);
+  void addImuFactor(std::size_t frame_idx, const LWIKeyframe &keyframe);
+  void addWheelFactor(std::size_t frame_idx, const LWIKeyframe &keyframe);
+  void addLidarFactors(std::size_t frame_idx, const LWIKeyframe &keyframe);
 
   InitGraphConfig config_;
   gtsam::NonlinearFactorGraph graph_;

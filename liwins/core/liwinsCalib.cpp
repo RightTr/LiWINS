@@ -1,5 +1,6 @@
 #include "core/liwinsCalib.h"
 
+#include <algorithm>
 #include <cmath>
 #include <vector>
 
@@ -40,7 +41,9 @@ void LIWINSCalib::init()
   std::vector<double> wheel_scale_prior_sigma;
   std::vector<double> wheel_factor_sigma;
 
-  rosparam_get("calib/min_init_frames", min_init_frames_, 10);
+  rosparam_get("calib/init_frames", init_frames_, 40);
+  rosparam_get("calib/window_size", window_size_, 25);
+  rosparam_get("calib/optimize_every_n", optimize_every_n_, 5);
   rosparam_get("calib/optimize_max_iterations", optimize_max_iterations_, 30);
   rosparam_get("calib/lidar_point_cov", lidar_point_cov_, 0.001);
   rosparam_get("calib/first_pose_prior_sigma", first_pose_prior_sigma, std::vector<double>{});
@@ -74,6 +77,16 @@ void LIWINSCalib::init()
   p_imu->set_acc_bias_cov(V3D(b_acc_cov, b_acc_cov, b_acc_cov));
   p_imu->lidar_type = lidar_type;
   p_imu->Reset();
+  p_wheel->set_intrinsic(wheel_sr, wheel_sl);
+  p_wheel->set_noise(wheel_noise_x, wheel_noise_y);
+  p_wheel->set_history_time(wheel_max_history_time);
+  p_wheel->set_extrinsic(Wheel_T_wrt_IMU_, Wheel_R_wrt_IMU_);
+  p_wheel->Reset();
+  wheel_last_lidar_time_ = -1.0;
+  wheel_integrated_x_ = 0.0;
+  wheel_integrated_y_ = 0.0;
+  keyframes_.clear();
+  frames_since_last_optimize_ = 0;
 
   init_state();
 
@@ -100,21 +113,6 @@ void LIWINSCalib::init()
       kFixedWheelTranslationSigma, wheel_extrinsic_prior_sigma[2];
   graph_config_.wheel_scale_prior_sigma << wheel_scale_prior_sigma[0], wheel_scale_prior_sigma[1];
   graph_config_.wheel_factor_sigma << wheel_factor_sigma[0], wheel_factor_sigma[1];
-
-  ROS_PRINT_INFO(
-      "LIW calib config: min_init_frames=%d max_iterations=%d lidar_point_cov=%.6f",
-      min_init_frames_,
-      optimize_max_iterations_,
-      lidar_point_cov_);
-  ROS_PRINT_INFO(
-      "LIW calib sigma: wheel_ext=[%.2e %.2e %.4f] wheel_scale=[%.4f %.4f] wheel_factor=[%.4f %.4f]",
-      graph_config_.wheel_extrinsic_prior_sigma[0],
-      graph_config_.wheel_extrinsic_prior_sigma[1],
-      graph_config_.wheel_extrinsic_prior_sigma[2],
-      graph_config_.wheel_scale_prior_sigma[0],
-      graph_config_.wheel_scale_prior_sigma[1],
-      graph_config_.wheel_factor_sigma[0],
-      graph_config_.wheel_factor_sigma[1]);
 
   init_graph_ = std::make_unique<LidarImuWheelInitGraph>(graph_config_);
 }
@@ -175,15 +173,38 @@ void LIWINSCalib::run()
     {
       first_lidar_time_ = Measures_.lidar_beg_time;
       p_imu->first_lidar_time = first_lidar_time_;
+      wheel_last_lidar_time_ = Measures_.lidar_beg_time;
       flg_first_scan_ = false;
       continue;
     }
 
+    const M3D R_WI_prev = state_curr_.rot.toRotationMatrix();
+    if (wheel_en && has_result_)
+    {
+      WheelPreintegration wheel_integrated;
+      wheel_integrated.start_time = wheel_last_lidar_time_;
+      wheel_integrated.end_time = lidar_end_time_;
+      const Eigen::Vector2d delta_wheel = integrate_wheel_delta(
+          Measures_.wheel, result_.wheel_scales.x(), result_.wheel_scales.y());
+      const M3D R_ItoO =
+          Eigen::AngleAxisd(result_.wheel_pose_in_imu.theta(), Eigen::Vector3d::UnitZ())
+              .toRotationMatrix();
+      const V3D delta_world = R_WI_prev * R_ItoO.transpose() * V3D(delta_wheel.x(), delta_wheel.y(), 0.0);
+      wheel_integrated_x_ += delta_world.x();
+      wheel_integrated_y_ += delta_world.y();
+      wheel_integrated.x_2D = wheel_integrated_x_;
+      wheel_integrated.y_2D = wheel_integrated_y_;
+      publish_wheel_integration(wheel_integrated);
+      publish_wheel_path(wheel_integrated_x_, wheel_integrated_y_, 0.0, wheel_integrated.end_time);
+    }
+
     const double integration_beg_time =
         last_integration_end_time_ > 0.0 ? last_integration_end_time_ : Measures_.lidar_beg_time;
+
     state_ikfom end_state = state_curr_;
     std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> imu_preintegration;
-    p_imu->ProcessPureIntegration(
+
+    p_imu->ProcessIntegration(
         Measures_, state_curr_, end_state, feats_undistort_, &imu_pose_traj_, &imu_preintegration);
     state_curr_ = end_state;
 
@@ -201,6 +222,7 @@ void LIWINSCalib::run()
     publish_path(make_pose_data(), lidar_end_time_);
     publish_world_cloud(dense_pub_en ? feats_undistort_ : feats_down_body_, lidar_end_time_, "camera_init", state_curr_);
     if (scan_body_pub_en) publish_body_cloud(feats_undistort_, lidar_end_time_, "body", state_curr_);
+    wheel_last_lidar_time_ = lidar_end_time_;
     last_integration_end_time_ = lidar_end_time_;
   }
 }
@@ -282,30 +304,38 @@ void LIWINSCalib::build_lidarObs(
 
   for (std::size_t i = 0; i < feats_down_body_->size(); ++i)
   {
-    pointBodyToWorld(&feats_down_body_->points[i], &feats_down_world_->points[i], state_curr_);
+    PointType &point_body = feats_down_body_->points[i];
+    PointType &point_world = feats_down_world_->points[i];
+    pointBodyToWorld(&point_body, &point_world, state_curr_);
 
+    bool point_selected = false;
     std::vector<float> point_search_sq_dis(NUM_MATCH_POINTS);
     auto &points_near = nearest_points_[i];
     point_map_->Nearest_Search(
-        feats_down_world_->points[i], NUM_MATCH_POINTS, points_near, point_search_sq_dis);
+        point_world, NUM_MATCH_POINTS, points_near, point_search_sq_dis);
 
-    if (points_near.size() < NUM_MATCH_POINTS || point_search_sq_dis[NUM_MATCH_POINTS - 1] > 5.0f)
+    point_selected =
+        (points_near.size() < NUM_MATCH_POINTS) ? false :
+        (point_search_sq_dis[NUM_MATCH_POINTS - 1] > 5.0f) ? false : true;
+    if (!point_selected)
       continue;
 
     VF(4) plane_coeff;
-    if (!esti_plane(plane_coeff, points_near, 0.1f))
-      continue;
+    point_selected = false;
+    if (esti_plane(plane_coeff, points_near, 0.1f))
+    {
+      V3D p_body(point_body.x, point_body.y, point_body.z);
+      const float pd2 =
+          plane_coeff(0) * point_world.x +
+          plane_coeff(1) * point_world.y +
+          plane_coeff(2) * point_world.z +
+          plane_coeff(3);
+      const float s_val = 1.0f - 0.9f * std::fabs(pd2) / std::sqrt(p_body.norm());
+      if (s_val > 0.9f)
+        point_selected = true;
+    }
 
-    const PointType &point_world = feats_down_world_->points[i];
-    const PointType &point_body = feats_down_body_->points[i];
-    const float point_plane_distance =
-        plane_coeff(0) * point_world.x +
-        plane_coeff(1) * point_world.y +
-        plane_coeff(2) * point_world.z +
-        plane_coeff(3);
-    const float score = 1.0f - 0.9f * std::fabs(point_plane_distance) /
-                                   std::sqrt(std::max(1e-6f, point_body.getVector3fMap().norm()));
-    if (score <= 0.9f)
+    if (!point_selected)
       continue;
 
     optimizeLidarObs observation;
@@ -322,7 +352,7 @@ void LIWINSCalib::append_keyframe(
     const std::vector<optimizeLidarObs> &obs,
     const std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> &imu_preintegration)
 {
-  InitKeyframe keyframe;
+  LWIKeyframe keyframe;
   keyframe.timestamp = lidar_end_time_;
   keyframe.initial_pose = state_to_gtsam_pose3(state_curr_);
   keyframe.initial_velocity = state_to_gtsam_velocity(state_curr_);
@@ -332,37 +362,14 @@ void LIWINSCalib::append_keyframe(
 
   keyframe.wheel_msgs.assign(Measures_.wheel.begin(), Measures_.wheel.end());
 
-  init_graph_->AddKeyframe(keyframe);
-}
+  keyframes_.push_back(keyframe);
+  ++frames_since_last_optimize_;
 
-void LIWINSCalib::apply_latest_optimized_state()
-{
-  if (!has_result_ || init_graph_->keyframe_count() == 0)
-    return;
-
-  const std::size_t frame_idx = init_graph_->keyframe_count() - 1;
-  const gtsam::Pose3 latest_pose =
-      result_.values.at<gtsam::Pose3>(gtsam::Symbol('x', frame_idx));
-  const gtsam::Vector3 latest_vel =
-      result_.values.at<gtsam::Vector3>(gtsam::Symbol('v', frame_idx));
-  const gtsam::imuBias::ConstantBias latest_bias =
-      result_.values.at<gtsam::imuBias::ConstantBias>(gtsam::Symbol('b', frame_idx));
-
-  state_curr_.pos = V3D(
-      latest_pose.translation().x(),
-      latest_pose.translation().y(),
-      latest_pose.translation().z());
-  state_curr_.rot = Eigen::Quaterniond(latest_pose.rotation().matrix());
-  state_curr_.rot.normalize();
-  state_curr_.vel = V3D(latest_vel.x(), latest_vel.y(), latest_vel.z());
-  state_curr_.ba = V3D(
-      latest_bias.accelerometer().x(),
-      latest_bias.accelerometer().y(),
-      latest_bias.accelerometer().z());
-  state_curr_.bg = V3D(
-      latest_bias.gyroscope().x(),
-      latest_bias.gyroscope().y(),
-      latest_bias.gyroscope().z());
+  if (has_result_)
+  {
+    while (static_cast<int>(keyframes_.size()) > window_size_)
+      keyframes_.pop_front();
+  }
 }
 
 void LIWINSCalib::map_incremental()
@@ -392,17 +399,65 @@ void LIWINSCalib::map_incremental()
 
 void LIWINSCalib::optimize()
 {
-  if (init_graph_->keyframe_count() == 0)
+  const bool ready_to_optimize =
+      has_result_ ? (frames_since_last_optimize_ >= optimize_every_n_) :
+                    (static_cast<int>(keyframes_.size()) >= init_frames_);
+  if (!ready_to_optimize)
     return;
+
+  if (has_result_)
+  {
+    graph_config_.initial_wheel_pose_in_imu = result_.wheel_pose_in_imu;
+    graph_config_.initial_wheel_scales = result_.wheel_scales;
+  }
+
+  init_graph_ = std::make_unique<LidarImuWheelInitGraph>(graph_config_);
+  for (const auto &keyframe : keyframes_)
+    init_graph_->AddKeyframe(keyframe);
 
   auto lm_params = gtsam::LevenbergMarquardtParams();
   lm_params.maxIterations = optimize_max_iterations_;
   const bool first_optimization = !has_result_;
   result_ = init_graph_->Optimize(lm_params);
   has_result_ = true;
-  apply_latest_optimized_state();
+  frames_since_last_optimize_ = 0;
+
+  for (std::size_t i = 0; i < keyframes_.size(); ++i)
+  {
+    keyframes_[i].initial_pose = result_.values.at<gtsam::Pose3>(gtsam::Symbol('x', i));
+    keyframes_[i].initial_velocity = result_.values.at<gtsam::Vector3>(gtsam::Symbol('v', i));
+    keyframes_[i].initial_bias =
+        result_.values.at<gtsam::imuBias::ConstantBias>(gtsam::Symbol('b', i));
+  }
+
+  const LWIKeyframe &last_keyframe = keyframes_.back();
+  state_curr_.pos = V3D(
+      last_keyframe.initial_pose.translation().x(),
+      last_keyframe.initial_pose.translation().y(),
+      last_keyframe.initial_pose.translation().z());
+  state_curr_.rot = Eigen::Quaterniond(last_keyframe.initial_pose.rotation().matrix());
+  state_curr_.rot.normalize();
+  state_curr_.vel = V3D(
+      last_keyframe.initial_velocity.x(),
+      last_keyframe.initial_velocity.y(),
+      last_keyframe.initial_velocity.z());
+  state_curr_.ba = V3D(
+      last_keyframe.initial_bias.accelerometer().x(),
+      last_keyframe.initial_bias.accelerometer().y(),
+      last_keyframe.initial_bias.accelerometer().z());
+  state_curr_.bg = V3D(
+      last_keyframe.initial_bias.gyroscope().x(),
+      last_keyframe.initial_bias.gyroscope().y(),
+      last_keyframe.initial_bias.gyroscope().z());
+
+  while (static_cast<int>(keyframes_.size()) > window_size_)
+    keyframes_.pop_front();
+
   if (first_optimization)
   {
+    wheel_integrated_x_ = 0.0;
+    wheel_integrated_y_ = 0.0;
+    wheel_last_lidar_time_ = lidar_end_time_;
     ROS_PRINT_INFO(
         "LIW calib initialized: tx=%.6f ty=%.6f theta=%.6f sr=%.6f sl=%.6f",
         result_.wheel_pose_in_imu.x(),

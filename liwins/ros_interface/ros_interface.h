@@ -89,5 +89,7 @@ void publish_effect_cloud(const PointCloudXYZI::Ptr& cloud, double lidar_end_tim
 void publish_map_cloud(const PointCloudXYZI::Ptr& cloud, double lidar_end_time,
 						const std::string& frame_id);
 void publish_odometryhighfreq(const Pose& pose);
+void publish_wheel_integration(const WheelPreintegration& wheel_preintegration);
+void publish_wheel_path(double x, double y, double z, double timestamp);
 
 #endif // ROS_INTERFACE_H

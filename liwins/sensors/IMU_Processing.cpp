@@ -232,7 +232,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   }
 }
 
-void ImuProcess::ProcessPureIntegration(const MeasureGroup &meas,
+void ImuProcess::ProcessIntegration(const MeasureGroup &meas,
                                         const state_ikfom &start_state,
                                         state_ikfom &end_state,
                                         PointCloudXYZI::Ptr cur_pcl_un_,
