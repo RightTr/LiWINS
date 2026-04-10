@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
+#include <iomanip>
 #include <vector>
 
 #include <gtsam/geometry/Rot3.h>
@@ -117,6 +118,9 @@ void LIWINSCalib::init()
   imu_state_file_.open(DEBUG_FILE_DIR("liw_calib_imu_state.txt"), std::ios::out);
   wheel_state_file_.open(DEBUG_FILE_DIR("liw_calib_wheel_state.txt"), std::ios::out);
   wheel_integration_file_.open(DEBUG_FILE_DIR("liw_calib_wheel_integration.txt"), std::ios::out);
+  imu_state_file_ << std::fixed << std::setprecision(9);
+  wheel_state_file_ << std::fixed << std::setprecision(9);
+  wheel_integration_file_ << std::fixed << std::setprecision(9);
   imu_state_file_ << "# timestamp px py pz qx qy qz qw vx vy vz bax bay baz bgx bgy bgz\n";
   wheel_state_file_ << "# timestamp tx ty theta sr sl\n";
   wheel_integration_file_ << "# timestamp x y\n";
