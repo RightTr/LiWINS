@@ -31,10 +31,8 @@ wheel:
     noise_x: 0.2
     noise_y: 0.5
     max_history_time: 100.0
-    extrinsic_T: [0.07, 0.0, -1.7]
-    extrinsic_R: [1.0, 0.0, 0.0,
-                  0.0, 1.0, 0.0,
-                  0.0, 0.0, 1.0]
+    extrinsic_T: [0.07, 0.0]
+    extrinsic_Theta: 0.0
 
 lio_sam:
   gpsTopic: "odometry/gpsz"                   # GPS odometry topic from navsat, see module_navsat.launch file

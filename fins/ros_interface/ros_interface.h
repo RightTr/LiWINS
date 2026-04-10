@@ -42,10 +42,10 @@ extern double b_acc_cov;
 extern double zupt_gyro_threshold;
 extern double zupt_acc_norm_threshold;
 
-extern std::vector<double> extrinT;
-extern std::vector<double> extrinR;
+extern std::vector<double> Lidar_extrinT;
+extern std::vector<double> Lidar_extrinR;
 extern std::vector<double> wheel_extrinT;
-extern std::vector<double> wheel_extrinR;
+extern double wheel_extrinTheta;
 
 extern std::shared_ptr<Preprocess> p_pre;
 extern std::shared_ptr<ImuProcess> p_imu;

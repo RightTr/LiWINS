@@ -18,6 +18,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl/kdtree/kdtree_flann.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <gtsam/navigation/CombinedImuFactor.h>
 
 #include "filter/filter.h"
 #include "sensors/preprocess.h"
@@ -51,8 +52,12 @@ class ImuProcess
 
   Eigen::Matrix<double, 12, 12> Q;
   void Process(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr pcl_un_);
-
-  void PBufferPop(Pose &pose);
+  void ProcessPureIntegration(const MeasureGroup &meas,
+                              const state_ikfom &start_state,
+                              state_ikfom &end_state,
+                              PointCloudXYZI::Ptr pcl_un_,
+                              std::vector<Pose6D> *imu_pose_traj = nullptr,
+                              std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> *imu_preintegration = nullptr);
 
   ofstream fout_imu;
   V3D cov_acc;
@@ -81,7 +86,7 @@ class ImuProcess
   V3D angvel_last;
   V3D acc_s_last;
   double start_timestamp_;
-  double last_lidar_end_time_;
+  double last_lidar_end_time_ = 0.0;
   int    init_iter_num = 1;
   bool   b_first_frame_ = true;
   bool   imu_need_init_ = true;

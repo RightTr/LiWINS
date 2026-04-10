@@ -57,10 +57,10 @@ std::string imu_topic;
 std::string wheel_topic;
 std::string reloc_topic;
 
-std::vector<double> extrinT;
-std::vector<double> extrinR;
+std::vector<double> Lidar_extrinT;
+std::vector<double> Lidar_extrinR;
 std::vector<double> wheel_extrinT;
-std::vector<double> wheel_extrinR;
+double wheel_extrinTheta = 0.0;
 
 std::shared_ptr<Preprocess> p_pre = std::make_shared<Preprocess>();
 std::shared_ptr<ImuProcess> p_imu = std::make_shared<ImuProcess>();
@@ -138,8 +138,8 @@ void load_config()
     rosparam_get("mapping/extrinsic_est_en", extrinsic_est_en, true);
     rosparam_get("pcd_save/pcd_save_en", pcd_save_en, false);
     rosparam_get("pcd_save/interval", pcd_save_interval, -1);
-    rosparam_get("mapping/extrinsic_T", extrinT, std::vector<double>());
-    rosparam_get("mapping/extrinsic_R", extrinR, std::vector<double>());
+    rosparam_get("mapping/extrinsic_T", Lidar_extrinT, std::vector<double>());
+    rosparam_get("mapping/extrinsic_R", Lidar_extrinR, std::vector<double>());
     
     rosparam_get("wheel/enable", wheel_en, false);
     rosparam_get("wheel/sr", wheel_sr, 1.0);
@@ -147,10 +147,9 @@ void load_config()
     rosparam_get("wheel/noise_x", wheel_noise_x, 0.02);
     rosparam_get("wheel/noise_y", wheel_noise_y, 0.02);
     rosparam_get("wheel/max_history_time", wheel_max_history_time, 100.0);
-    rosparam_get("wheel/extrinsic_T", wheel_extrinT, std::vector<double>{0.0, 0.0, 0.0});
-    rosparam_get("wheel/extrinsic_R", wheel_extrinR, std::vector<double>{1.0, 0.0, 0.0,
-                                                                          0.0, 1.0, 0.0,
-                                                                          0.0, 0.0, 1.0});
+    rosparam_get("wheel/extrinsic_T", wheel_extrinT, std::vector<double>{0.0, 0.0});
+    rosparam_get("wheel/extrinsic_Theta", wheel_extrinTheta, 0.0);
+    wheel_extrinTheta = deg2rad(wheel_extrinTheta);
 
     p_pre->lidar_type = lidar_type;
 }

@@ -21,10 +21,10 @@ void LaserMapping::init()
     downSizeFilterSurf_.setLeafSize(
         filter_size_surf_min, filter_size_surf_min, filter_size_surf_min);
     
-    Lidar_T_wrt_IMU_ << VEC_FROM_ARRAY(extrinT);
-    Lidar_R_wrt_IMU_ << MAT_FROM_ARRAY(extrinR);
-    Wheel_T_wrt_IMU_ << VEC_FROM_ARRAY(wheel_extrinT);
-    Wheel_R_wrt_IMU_ << MAT_FROM_ARRAY(wheel_extrinR);
+    Lidar_T_wrt_IMU_ << VEC_FROM_ARRAY(Lidar_extrinT);
+    Lidar_R_wrt_IMU_ << MAT_FROM_ARRAY(Lidar_extrinR);
+    Wheel_T_wrt_IMU_ << wheel_extrinT[0], wheel_extrinT[1], 0.0;
+    Wheel_R_wrt_IMU_ = Eigen::AngleAxisd(wheel_extrinTheta, Eigen::Vector3d::UnitZ()).toRotationMatrix();
     if (imu_flip_en)
     {
         // IMU frame inversion: coordinates in IMU frame should be transformed consistently.

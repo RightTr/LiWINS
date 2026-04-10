@@ -10,7 +10,7 @@ def load_ros1_yaml_as_params(yaml_file_path):
     """Load ROS1 format YAML and convert to ROS2 parameter dict"""
     with open(yaml_file_path, 'r') as file:
         config = yaml.safe_load(file)
-
+    
     def flatten_dict(d, parent_key='', sep='/'):
         items = []
         for k, v in d.items():
@@ -23,12 +23,12 @@ def load_ros1_yaml_as_params(yaml_file_path):
     
     return flatten_dict(config)
 
-rviz_cfg = os.path.join( get_package_share_directory("fins"), "rviz_cfg", "loam_ros2.rviz" )
+rviz_cfg = os.path.join(get_package_share_directory("fins"), "rviz_cfg", "loam_ros2.rviz" )
 
 print(rviz_cfg)
 
 config_file = os.path.join(
-    get_package_share_directory("fins"), "config", "reloc", "mid360.yaml"
+    get_package_share_directory("fins"), "config", "calib", "mid360_wheel.yaml"
 )
 
 # Load ROS1 format YAML and convert params
@@ -48,7 +48,7 @@ fast_lio_params = [
 def generate_launch_description():
     fins = Node(
         package='fins',
-        executable='fins_mapping',
+        executable='fins_calib',
         output='screen',
         parameters=fast_lio_params
     )

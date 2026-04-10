@@ -1,0 +1,69 @@
+common:
+    lid_topic: "/livox/lidar"
+    imu_topic: "/livox/imu"
+    wheel_topic: "/serial/wheel"
+    time_sync_en: false
+    time_offset_lidar_to_imu: 0.0
+    imu_flip_en: false
+
+preprocess:
+    lidar_type: 1
+    scan_line: 4
+    blind: 0.5
+    timestamp_unit: 2
+    scan_rate: 10
+
+max_iteration: 4
+point_filter_num: 2
+
+mapping:
+    acc_cov: 0.1        # used by planar_calib_imu_sqrt_info_(acc)
+    gyr_cov: 0.1        # used by planar_calib_imu_sqrt_info_(gyro)
+    b_acc_cov: 0.0001   # used by bias prior/random walk
+    b_gyr_cov: 0.0001   # used by bias prior/random walk
+    fov_degree: 360.0
+    det_range: 100.0
+    extrinsic_est_en: false
+    extrinsic_T: [-0.011, -0.02329, 0.04412]
+    extrinsic_R: [1.0, 0.0, 0.0,
+                  0.0, 1.0, 0.0,
+                  0.0, 0.0, 1.0]
+
+wheel:
+    enable: true
+    noise_x: 0.5
+    noise_y: 0.5
+    max_history_time: 100.0
+    sl: 0.3
+    sr: 0.3
+    extrinsic_T: [-0.225, 0.411]
+    extrinsic_Theta: 45.0  # deg
+
+calib:
+    min_init_frames: 200
+    optimize_max_iterations: 30
+    lidar_point_cov: 0.001
+    first_pose_prior_sigma: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
+    first_velocity_prior_sigma: [0.01, 0.01, 0.01]
+    first_bias_prior_sigma: [0.001, 0.001, 0.001, 0.01, 0.01, 0.01]
+    wheel_extrinsic_prior_sigma: [0.1, 0.1, 0.2]
+    wheel_scale_prior_sigma: [0.2, 0.2]
+    wheel_factor_sigma: [0.05, 0.05]
+
+publish:
+    path_en: false
+    scan_publish_en: false
+    dense_publish_en: false
+    scan_bodyframe_pub_en: false
+    feature_pub_en: false
+    effect_pub_en: false
+
+sam_enable: false
+
+reloc:
+    reloc_en: false
+    reloc_topic: "/reloc/manual"
+
+pcd_save:
+    pcd_save_en: false
+    interval: -1

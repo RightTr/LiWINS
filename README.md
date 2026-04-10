@@ -40,7 +40,9 @@ cd src/LI-pipline
 cd src/LI-pipline
 ./build.sh humble
 
-colcon build   --parallel-workers $NUM_CORES
+export MAKEFLAGS="-j1"
+colcon build --executor sequential
+
 ```
 
 ## ✨ Features

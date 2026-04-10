@@ -1,5 +1,7 @@
 #include "sensors/IMU_Processing.h"
 
+#include <gtsam/navigation/CombinedImuFactor.h>
+
 bool time_list(PointType &x, PointType &y) { return (x.curvature < y.curvature); }
 
 ImuProcess::ImuProcess()
@@ -71,11 +73,6 @@ void ImuProcess::set_gyr_bias_cov(const V3D &b_g)
 void ImuProcess::set_acc_bias_cov(const V3D &b_a)
 {
   cov_bias_acc = b_a;
-}
-
-void ImuProcess::PBufferPop(Pose &pose)
-{
-  pose = pbuffer.Pop();
 }
 
 void ImuProcess::IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, int &N)
@@ -233,6 +230,198 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
       }
     }
   }
+}
+
+void ImuProcess::ProcessPureIntegration(const MeasureGroup &meas,
+                                        const state_ikfom &start_state,
+                                        state_ikfom &end_state,
+                                        PointCloudXYZI::Ptr cur_pcl_un_,
+                                        std::vector<Pose6D> *imu_pose_traj,
+                                        std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> *imu_preintegration)
+{
+  auto v_imu = meas.imu;
+  const double integration_beg_time =
+      last_lidar_end_time_ > 0.0 ? last_lidar_end_time_ : meas.lidar_beg_time;
+  if (last_lidar_end_time_ > 0.0)
+    v_imu.push_front(last_imu_);
+  const double imu_end_time = get_ros_time_sec(v_imu.back()->header.stamp);
+
+  double pcl_end_time = meas.lidar_end_time;
+
+  *cur_pcl_un_ = *(meas.lidar);
+  sort(cur_pcl_un_->points.begin(), cur_pcl_un_->points.end(), time_list);
+
+  state_ikfom imu_state = start_state;
+  IMUpose.clear();
+  IMUpose.push_back(set_pose6d(0.0,
+                               Zero3d,
+                               Zero3d,
+                               V3D(imu_state.vel[0], imu_state.vel[1], imu_state.vel[2]),
+                               V3D(imu_state.pos[0], imu_state.pos[1], imu_state.pos[2]),
+                               imu_state.rot.toRotationMatrix()));
+
+  V3D angvel_avr = Zero3d;
+  V3D acc_avr = Zero3d;
+  V3D acc_world = Zero3d;
+  double dt = 0.0;
+  std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> preintegrated;
+
+  if (imu_preintegration)
+  {
+    auto imu_params = gtsam::PreintegrationCombinedParams::MakeSharedU(G_m_s2);
+    imu_params->gyroscopeCovariance = cov_gyr.asDiagonal();
+    imu_params->accelerometerCovariance = cov_acc.asDiagonal();
+    imu_params->integrationCovariance = gtsam::I_3x3 * 1e-8;
+    imu_params->biasOmegaCovariance = cov_bias_gyr.asDiagonal();
+    imu_params->biasAccCovariance = cov_bias_acc.asDiagonal();
+    imu_params->biasAccOmegaInt = gtsam::I_6x6 * 1e-5;
+
+    preintegrated = std::make_shared<gtsam::PreintegratedCombinedMeasurements>(
+        imu_params,
+        gtsam::imuBias::ConstantBias(
+            gtsam::Vector3(start_state.ba[0], start_state.ba[1], start_state.ba[2]),
+            gtsam::Vector3(start_state.bg[0], start_state.bg[1], start_state.bg[2])));
+  }
+
+  for (auto it_imu = v_imu.begin(); it_imu < (v_imu.end() - 1); ++it_imu)
+  {
+    auto &&head = *(it_imu);
+    auto &&tail = *(it_imu + 1);
+    const double head_time = get_ros_time_sec(head->header.stamp);
+    const double tail_time = get_ros_time_sec(tail->header.stamp);
+
+    angvel_avr << 0.5 * (head->angular_velocity.x + tail->angular_velocity.x),
+                  0.5 * (head->angular_velocity.y + tail->angular_velocity.y),
+                  0.5 * (head->angular_velocity.z + tail->angular_velocity.z);
+    acc_avr << 0.5 * (head->linear_acceleration.x + tail->linear_acceleration.x),
+               0.5 * (head->linear_acceleration.y + tail->linear_acceleration.y),
+               0.5 * (head->linear_acceleration.z + tail->linear_acceleration.z);
+
+    acc_avr = acc_avr * G_m_s2 / mean_acc.norm();
+
+    if (head_time < integration_beg_time)
+      dt = tail_time - integration_beg_time;
+    else
+      dt = tail_time - head_time;
+
+    if (preintegrated && dt > 0.0)
+    {
+      preintegrated->integrateMeasurement(
+          gtsam::Vector3(acc_avr.x(), acc_avr.y(), acc_avr.z()),
+          gtsam::Vector3(angvel_avr.x(), angvel_avr.y(), angvel_avr.z()),
+          dt);
+    }
+
+    if (dt > 0.0)
+    {
+      const V3D pos(imu_state.pos[0], imu_state.pos[1], imu_state.pos[2]);
+      const V3D vel(imu_state.vel[0], imu_state.vel[1], imu_state.vel[2]);
+      const V3D bg(imu_state.bg[0], imu_state.bg[1], imu_state.bg[2]);
+      const V3D ba(imu_state.ba[0], imu_state.ba[1], imu_state.ba[2]);
+      const V3D grav(imu_state.grav[0], imu_state.grav[1], imu_state.grav[2]);
+      const V3D omega = angvel_avr - bg;
+      const V3D acc_body = acc_avr - ba;
+      const M3D R0 = imu_state.rot.toRotationMatrix();
+      const M3D R1 = R0 * Exp(omega, dt);
+      const V3D acc_world_0 = R0 * acc_body + grav;
+      const V3D acc_world_1 = R1 * acc_body + grav;
+      const V3D acc_world_mid = 0.5 * (acc_world_0 + acc_world_1);
+
+      imu_state.pos = pos + vel * dt + 0.5 * acc_world_mid * dt * dt;
+      imu_state.vel = vel + acc_world_mid * dt;
+      imu_state.rot = Eigen::Quaterniond(R1);
+    }
+
+    const V3D bg(imu_state.bg[0], imu_state.bg[1], imu_state.bg[2]);
+    const V3D ba(imu_state.ba[0], imu_state.ba[1], imu_state.ba[2]);
+    const V3D grav(imu_state.grav[0], imu_state.grav[1], imu_state.grav[2]);
+    const V3D angvel_unbiased = angvel_avr - bg;
+    acc_world = imu_state.rot.toRotationMatrix() * (acc_avr - ba) + grav;
+
+    const double offs_t = tail_time - integration_beg_time;
+    IMUpose.push_back(set_pose6d(offs_t,
+                                 acc_world,
+                                 angvel_unbiased,
+                                 V3D(imu_state.vel[0], imu_state.vel[1], imu_state.vel[2]),
+                                 V3D(imu_state.pos[0], imu_state.pos[1], imu_state.pos[2]),
+                                 imu_state.rot.toRotationMatrix()));
+  }
+
+  if (pcl_end_time > imu_end_time)
+  {
+    const double tail_dt = pcl_end_time - imu_end_time;
+    const V3D pos(imu_state.pos[0], imu_state.pos[1], imu_state.pos[2]);
+    const V3D vel(imu_state.vel[0], imu_state.vel[1], imu_state.vel[2]);
+    const V3D bg(imu_state.bg[0], imu_state.bg[1], imu_state.bg[2]);
+    const V3D ba(imu_state.ba[0], imu_state.ba[1], imu_state.ba[2]);
+    const V3D grav(imu_state.grav[0], imu_state.grav[1], imu_state.grav[2]);
+    const V3D omega = angvel_avr - bg;
+    const V3D acc_body = acc_avr - ba;
+    const M3D R0 = imu_state.rot.toRotationMatrix();
+    const M3D R1 = R0 * Exp(omega, tail_dt);
+    const V3D acc_world_0 = R0 * acc_body + grav;
+    const V3D acc_world_1 = R1 * acc_body + grav;
+    const V3D acc_world_mid = 0.5 * (acc_world_0 + acc_world_1);
+
+    imu_state.pos = pos + vel * tail_dt + 0.5 * acc_world_mid * tail_dt * tail_dt;
+    imu_state.vel = vel + acc_world_mid * tail_dt;
+    imu_state.rot = Eigen::Quaterniond(R1);
+  }
+
+  end_state = imu_state;
+  last_imu_ = meas.imu.back();
+  last_lidar_end_time_ = pcl_end_time;
+
+  if (imu_preintegration)
+    *imu_preintegration = preintegrated;
+
+  if (cur_pcl_un_->points.empty())
+  {
+    if (imu_pose_traj)
+      *imu_pose_traj = IMUpose;
+    return;
+  }
+
+  auto it_pcl = cur_pcl_un_->points.end() - 1;
+  for (auto it_kp = IMUpose.end() - 1; it_kp != IMUpose.begin(); --it_kp)
+  {
+    auto head = it_kp - 1;
+    auto tail = it_kp;
+
+    M3D R_imu;
+    R_imu << MAT_FROM_ARRAY(head->rot);
+    V3D vel_imu;
+    vel_imu << VEC_FROM_ARRAY(head->vel);
+    V3D pos_imu;
+    pos_imu << VEC_FROM_ARRAY(head->pos);
+    V3D acc_imu;
+    acc_imu << VEC_FROM_ARRAY(tail->acc);
+    V3D gyr_imu;
+    gyr_imu << VEC_FROM_ARRAY(tail->gyr);
+
+    for (; it_pcl->curvature / double(1000) > head->offset_time; --it_pcl)
+    {
+      dt = it_pcl->curvature / double(1000) - head->offset_time;
+      const M3D R_i = R_imu * Exp(gyr_imu, dt);
+      const V3D P_i(it_pcl->x, it_pcl->y, it_pcl->z);
+      const V3D T_ei = pos_imu + vel_imu * dt + 0.5 * acc_imu * dt * dt -
+                        V3D(imu_state.pos[0], imu_state.pos[1], imu_state.pos[2]);
+      const V3D P_compensate = imu_state.offset_R_L_I.conjugate() *
+                                (imu_state.rot.conjugate() *
+                                    (R_i * (imu_state.offset_R_L_I * P_i + imu_state.offset_T_L_I) + T_ei) -
+                                imu_state.offset_T_L_I);
+
+      it_pcl->x = P_compensate(0);
+      it_pcl->y = P_compensate(1);
+      it_pcl->z = P_compensate(2);
+
+      if (it_pcl == cur_pcl_un_->points.begin())
+        break;
+    }
+  }
+
+  if (imu_pose_traj)
+    *imu_pose_traj = IMUpose;
 }
 
 void ImuProcess::Process(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr cur_pcl_un_)
