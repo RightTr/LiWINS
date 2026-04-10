@@ -1,4 +1,4 @@
-#include "core/liwinCalib.h"
+#include "core/liwinsCalib.h"
 
 #include <cmath>
 #include <vector>
@@ -31,7 +31,7 @@ gtsam::imuBias::ConstantBias state_to_gtsam_bias(const state_ikfom &state)
 
 } // namespace
 
-void LIWINCalib::init()
+void LIWINSCalib::init()
 {
   std::vector<double> first_pose_prior_sigma;
   std::vector<double> first_velocity_prior_sigma;
@@ -119,7 +119,7 @@ void LIWINCalib::init()
   init_graph_ = std::make_unique<LidarImuWheelInitGraph>(graph_config_);
 }
 
-void LIWINCalib::init_state()
+void LIWINSCalib::init_state()
 {
   state_curr_ = state_ikfom();
   state_curr_.pos = Zero3d;
@@ -132,7 +132,7 @@ void LIWINCalib::init_state()
   state_curr_.offset_R_L_I = Lidar_R_wrt_IMU_;
 }
 
-OdomData LIWINCalib::make_odom_data() const
+OdomData LIWINSCalib::make_odom_data() const
 {
   OdomData odom;
   odom.x = state_curr_.pos.x();
@@ -146,7 +146,7 @@ OdomData LIWINCalib::make_odom_data() const
   return odom;
 }
 
-PoseData LIWINCalib::make_pose_data() const
+PoseData LIWINSCalib::make_pose_data() const
 {
   PoseData pose;
   pose.x = state_curr_.pos.x();
@@ -160,49 +160,7 @@ PoseData LIWINCalib::make_pose_data() const
   return pose;
 }
 
-void LIWINCalib::publish_integrated_poses(double integration_beg_time)
-{
-  for (const auto &imu_pose : imu_pose_traj_)
-  {
-    const double timestamp = integration_beg_time + imu_pose.offset_time;
-    if (timestamp <= last_published_imu_pose_time_)
-      continue;
-
-    M3D R;
-    R << MAT_FROM_ARRAY(imu_pose.rot);
-    Eigen::Quaterniond q(R);
-    q.normalize();
-
-    Pose pose;
-    pose._timestamp = timestamp;
-    pose._x = imu_pose.pos[0];
-    pose._y = imu_pose.pos[1];
-    pose._z = imu_pose.pos[2];
-    pose._qx = q.x();
-    pose._qy = q.y();
-    pose._qz = q.z();
-    pose._qw = q.w();
-    publish_odometryhighfreq(pose);
-    last_published_imu_pose_time_ = timestamp;
-  }
-
-  if (lidar_end_time_ > last_published_imu_pose_time_)
-  {
-    Pose pose;
-    pose._timestamp = lidar_end_time_;
-    pose._x = state_curr_.pos.x();
-    pose._y = state_curr_.pos.y();
-    pose._z = state_curr_.pos.z();
-    pose._qx = state_curr_.rot.x();
-    pose._qy = state_curr_.rot.y();
-    pose._qz = state_curr_.rot.z();
-    pose._qw = state_curr_.rot.w();
-    publish_odometryhighfreq(pose);
-    last_published_imu_pose_time_ = lidar_end_time_;
-  }
-}
-
-void LIWINCalib::run()
+void LIWINSCalib::run()
 {
   while (ros_ok())
   {
@@ -232,9 +190,9 @@ void LIWINCalib::run()
     downSizeFilterSurf_.setInputCloud(feats_undistort_);
     downSizeFilterSurf_.filter(*feats_down_body_);
 
-    std::vector<optimizeLidarObs> observations;
-    build_lidarObs(observations);
-    append_keyframe(observations, imu_preintegration);
+    std::vector<optimizeLidarObs> obs;
+    build_lidarObs(obs);
+    append_keyframe(obs, imu_preintegration);
 
     optimize();
     map_incremental();
@@ -242,14 +200,12 @@ void LIWINCalib::run()
     publish_odometry(make_odom_data(), lidar_end_time_);
     publish_path(make_pose_data(), lidar_end_time_);
     publish_world_cloud(dense_pub_en ? feats_undistort_ : feats_down_body_, lidar_end_time_, "camera_init", state_curr_);
-    if (scan_body_pub_en)
-      publish_body_cloud(feats_undistort_, lidar_end_time_, "body", state_curr_);
-    publish_integrated_poses(integration_beg_time);
+    if (scan_body_pub_en) publish_body_cloud(feats_undistort_, lidar_end_time_, "body", state_curr_);
     last_integration_end_time_ = lidar_end_time_;
   }
 }
 
-bool LIWINCalib::sync_packages(MeasureGroup &meas)
+bool LIWINSCalib::sync_packages(MeasureGroup &meas)
 {
   if (lidar_buffer.empty() || imu_buffer.empty())
     return false;
@@ -313,10 +269,10 @@ bool LIWINCalib::sync_packages(MeasureGroup &meas)
   return true;
 }
 
-void LIWINCalib::build_lidarObs(
-    std::vector<optimizeLidarObs> &observations)
+void LIWINSCalib::build_lidarObs(
+    std::vector<optimizeLidarObs> &obs)
 {
-  observations.clear();
+  obs.clear();
   if (point_map_->Size() < NUM_MATCH_POINTS)
     return;
 
@@ -358,12 +314,12 @@ void LIWINCalib::build_lidarObs(
         V3D(plane_coeff(0), plane_coeff(1), plane_coeff(2));
     observation.plane_offset = plane_coeff(3);
     observation.sigma = lidar_point_cov_;
-    observations.push_back(observation);
+    obs.push_back(observation);
   }
 }
 
-void LIWINCalib::append_keyframe(
-    const std::vector<optimizeLidarObs> &observations,
+void LIWINSCalib::append_keyframe(
+    const std::vector<optimizeLidarObs> &obs,
     const std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> &imu_preintegration)
 {
   InitKeyframe keyframe;
@@ -372,15 +328,14 @@ void LIWINCalib::append_keyframe(
   keyframe.initial_velocity = state_to_gtsam_velocity(state_curr_);
   keyframe.initial_bias = state_to_gtsam_bias(state_curr_);
   keyframe.imu_preintegration = imu_preintegration;
-  keyframe.lidar_plane_observations = observations;
+  keyframe.lidar_obs = obs;
 
-  keyframe.imu_msgs.assign(Measures_.imu.begin(), Measures_.imu.end());
   keyframe.wheel_msgs.assign(Measures_.wheel.begin(), Measures_.wheel.end());
 
   init_graph_->AddKeyframe(keyframe);
 }
 
-void LIWINCalib::apply_latest_optimized_state()
+void LIWINSCalib::apply_latest_optimized_state()
 {
   if (!has_result_ || init_graph_->keyframe_count() == 0)
     return;
@@ -410,7 +365,7 @@ void LIWINCalib::apply_latest_optimized_state()
       latest_bias.gyroscope().z());
 }
 
-void LIWINCalib::map_incremental()
+void LIWINSCalib::map_incremental()
 {
   if (feats_down_body_->empty())
     return;
@@ -435,7 +390,7 @@ void LIWINCalib::map_incremental()
   point_map_->InsertPoints(points_to_add, true);
 }
 
-void LIWINCalib::optimize()
+void LIWINSCalib::optimize()
 {
   if (init_graph_->keyframe_count() == 0)
     return;

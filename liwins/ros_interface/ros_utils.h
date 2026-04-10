@@ -23,8 +23,8 @@
 #include <geometry_msgs/Vector3.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
 #include <livox_ros_driver2/CustomMsg.h>
-#include <fins/Pose6D.h>
-#include <fins/Wheel.h>
+#include <liwins/Pose6D.h>
+#include <liwins/Wheel.h>
 #include <eigen_conversions/eigen_msg.h>
 #include <tf/transform_broadcaster.h>
 
@@ -34,8 +34,8 @@ using PathMsg = nav_msgs::Path;
 using OdometryMsg = nav_msgs::Odometry;
 using OdometryMsgConstPtr = nav_msgs::Odometry::ConstPtr;
 using OdomMsg = nav_msgs::Odometry;
-using Pose6D = fins::Pose6D;
-using WheelMsg = fins::Wheel;
+using Pose6D = liwins::Pose6D;
+using WheelMsg = liwins::Wheel;
 using MarkerMsg = visualization_msgs::Marker;
 using MarkerArrayMsg = visualization_msgs::MarkerArray;
 using PointMsg = geometry_msgs::Point;
@@ -57,8 +57,8 @@ using QuaternionMsg = geometry_msgs::Quaternion;
 using PoseStampedMsgConstPtr = geometry_msgs::PoseStamped::ConstPtr;
 using ImuMsgConstPtr = sensor_msgs::Imu::ConstPtr;
 using ImuMsgPtr = sensor_msgs::Imu::Ptr;
-using WheelMsgConstPtr = fins::Wheel::ConstPtr;
-using WheelMsgPtr = fins::Wheel::Ptr;
+using WheelMsgConstPtr = liwins::Wheel::ConstPtr;
+using WheelMsgPtr = liwins::Wheel::Ptr;
 using LivoxCustomMsgConstPtr = livox_ros_driver2::CustomMsg::ConstPtr;
 using LivoxCustomMsg = livox_ros_driver2::CustomMsg;
 using Pcl2MsgConstPtr = sensor_msgs::PointCloud2::ConstPtr;
@@ -84,8 +84,8 @@ using WheelSubscriber = ros::Subscriber;
 #include <geometry_msgs/msg/vector3.hpp>
 #include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
 #include <livox_ros_driver2/msg/custom_msg.hpp>
-#include <fins/msg/pose6_d.hpp>
-#include <fins/msg/wheel.hpp>
+#include <liwins/msg/pose6_d.hpp>
+#include <liwins/msg/wheel.hpp>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2_eigen/tf2_eigen.hpp>
 
@@ -95,8 +95,8 @@ using PathMsg = nav_msgs::msg::Path;
 using OdometryMsg = nav_msgs::msg::Odometry;
 using OdometryMsgConstPtr = nav_msgs::msg::Odometry::ConstSharedPtr;
 using OdomMsg = nav_msgs::msg::Odometry;
-using Pose6D = fins::msg::Pose6D;
-using WheelMsg = fins::msg::Wheel;
+using Pose6D = liwins::msg::Pose6D;
+using WheelMsg = liwins::msg::Wheel;
 using MarkerMsg = visualization_msgs::msg::Marker;
 using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
 using PointMsg = geometry_msgs::msg::Point;
@@ -118,13 +118,13 @@ using QuaternionMsg = geometry_msgs::msg::Quaternion;
 using PoseStampedMsgConstPtr = geometry_msgs::msg::PoseStamped::ConstPtr;
 using ImuMsgConstPtr = sensor_msgs::msg::Imu::ConstPtr;
 using ImuMsgPtr = sensor_msgs::msg::Imu::Ptr;
-using WheelMsgConstPtr = fins::msg::Wheel::ConstSharedPtr;
+using WheelMsgConstPtr = liwins::msg::Wheel::ConstSharedPtr;
 using LivoxCustomMsgConstPtr = livox_ros_driver2::msg::CustomMsg::ConstPtr;
 using LivoxCustomMsg = livox_ros_driver2::msg::CustomMsg;
 using Pcl2MsgConstPtr = sensor_msgs::msg::PointCloud2::ConstPtr;
 using LivoxMsg = livox_ros_driver2::msg::CustomMsg;  // ROS2 Livox driver outputs CustomMsg
 using TransformStampedMsg = geometry_msgs::msg::TransformStamped;
-using WheelSubscriber = rclcpp::Subscription<fins::msg::Wheel>::SharedPtr;
+using WheelSubscriber = rclcpp::Subscription<liwins::msg::Wheel>::SharedPtr;
 
 #endif
 
@@ -155,7 +155,7 @@ inline void ROS_PRINT_WARN(const char *fmt, ...) {
 #ifdef USE_ROS1
     ROS_WARN("%s", msg);
 #elif defined(USE_ROS2)
-    RCLCPP_WARN(rclcpp::get_logger("fins"), "%s", msg);
+    RCLCPP_WARN(rclcpp::get_logger("liwins"), "%s", msg);
 #endif
 }
 
@@ -168,7 +168,7 @@ inline void ROS_PRINT_ERROR(const char *fmt, ...) {
 #ifdef USE_ROS1
     ROS_ERROR("%s", msg);
 #elif defined(USE_ROS2)
-    RCLCPP_ERROR(rclcpp::get_logger("fins"), "%s", msg);
+    RCLCPP_ERROR(rclcpp::get_logger("liwins"), "%s", msg);
 #endif
 }
 
@@ -181,7 +181,7 @@ inline void ROS_PRINT_INFO(const char *fmt, ...) {
 #ifdef USE_ROS1
     ROS_INFO("%s", msg);
 #elif defined(USE_ROS2)
-    RCLCPP_INFO(rclcpp::get_logger("fins"), "%s", msg);
+    RCLCPP_INFO(rclcpp::get_logger("liwins"), "%s", msg);
 #endif
 }
 
@@ -328,7 +328,7 @@ inline void init_ros_node(const rclcpp::Node::SharedPtr &node = nullptr) {
         if (node) {
             g_ros_node = node;
         } else {
-            g_ros_node = rclcpp::Node::make_shared("fins");
+            g_ros_node = rclcpp::Node::make_shared("liwins");
         }
     }
 }

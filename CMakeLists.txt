@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(fins)
+project(liwins)
 
 SET(CMAKE_BUILD_TYPE "Release")
 
@@ -49,29 +49,29 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
   ${GTSAM_INCLUDE_DIR}
-  fins
-  fins/utils
-  fins/core)
+  liwins
+  liwins/utils
+  liwins/core)
 
-set(FINS_CORE_SOURCES
-  fins/core/laserMapping.cpp
-  fins/core/liwinCalib.cpp
-  fins/sensors/preprocess.cpp
-  fins/sensors/IMU_Processing.cpp
-  fins/sensors/wheel_Processing.cpp
-  fins/map/ikd-Tree/ikd_Tree.cpp
-  fins/map/octvox/octvox.cpp
-  fins/filter/filter.cpp
-  fins/lio_sam/utility.cpp
-  fins/lio_sam/mapOptimization.cpp
-  fins/ros_interface/ros_interface.cpp
-  fins/calib/lidar_imu_wheel_init.cpp)
+set(LIWINS_CORE_SOURCES
+  liwins/core/laserMapping.cpp
+  liwins/core/liwinsCalib.cpp
+  liwins/sensors/preprocess.cpp
+  liwins/sensors/IMU_Processing.cpp
+  liwins/sensors/wheel_Processing.cpp
+  liwins/map/ikd-Tree/ikd_Tree.cpp
+  liwins/map/octvox/octvox.cpp
+  liwins/filter/filter.cpp
+  liwins/lio_sam/utility.cpp
+  liwins/lio_sam/mapOptimization.cpp
+  liwins/ros_interface/ros_interface.cpp
+  liwins/calib/lidar_imu_wheel_init.cpp)
 
-set(FINS_LIWIN_APP
-  fins/app/liwin.cpp)
+set(LIWINS_APP
+  liwins/app/liwins.cpp)
 
-set(FINS_CALIB_APP
-  fins/app/calib.cpp)
+set(LIWINS_CALIB_APP
+  liwins/app/calib.cpp)
 
 
 find_package(catkin QUIET)
@@ -123,15 +123,15 @@ if(USE_ROS1)
     INCLUDE_DIRS
   )
 
-  add_executable(fins_mapping
-    ${FINS_LIWIN_APP}
-    ${FINS_CORE_SOURCES})
-  target_link_libraries(fins_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
+  add_executable(liwins_mapping
+    ${LIWINS_APP}
+    ${LIWINS_CORE_SOURCES})
+  target_link_libraries(liwins_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
 
-  add_executable(fins_calib
-    ${FINS_CALIB_APP}
-    ${FINS_CORE_SOURCES})
-  target_link_libraries(fins_calib ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
+  add_executable(liwins_calib
+    ${LIWINS_CALIB_APP}
+    ${LIWINS_CORE_SOURCES})
+  target_link_libraries(liwins_calib ${catkin_LIBRARIES} ${PCL_LIBRARIES} gtsam)
 endif()
 
 if(USE_ROS2)
@@ -155,13 +155,13 @@ if(USE_ROS2)
       geometry_msgs
   )
   
-  add_executable(fins_mapping
-    ${FINS_LIWIN_APP}
-    ${FINS_CORE_SOURCES})
-  add_executable(fins_calib
-    ${FINS_CALIB_APP}
-    ${FINS_CORE_SOURCES})
-  ament_target_dependencies(fins_mapping
+  add_executable(liwins_mapping
+    ${LIWINS_APP}
+    ${LIWINS_CORE_SOURCES})
+  add_executable(liwins_calib
+    ${LIWINS_CALIB_APP}
+    ${LIWINS_CORE_SOURCES})
+  ament_target_dependencies(liwins_mapping
     rclcpp
     sensor_msgs
     geometry_msgs
@@ -174,7 +174,7 @@ if(USE_ROS2)
     livox_ros_driver2
     visualization_msgs
   )
-  ament_target_dependencies(fins_calib
+  ament_target_dependencies(liwins_calib
     rclcpp
     sensor_msgs
     geometry_msgs
@@ -187,15 +187,15 @@ if(USE_ROS2)
     livox_ros_driver2
     visualization_msgs
   )
-  target_include_directories(fins_mapping PRIVATE
+  target_include_directories(liwins_mapping PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
   )
-  target_include_directories(fins_calib PRIVATE
+  target_include_directories(liwins_calib PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/rosidl_generator_cpp
   )
   rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
-  target_link_libraries(fins_mapping ${PCL_LIBRARIES} gtsam ${cpp_typesupport_target})
-  target_link_libraries(fins_calib ${PCL_LIBRARIES} gtsam ${cpp_typesupport_target})
+  target_link_libraries(liwins_mapping ${PCL_LIBRARIES} gtsam ${cpp_typesupport_target})
+  target_link_libraries(liwins_calib ${PCL_LIBRARIES} gtsam ${cpp_typesupport_target})
   install(
   DIRECTORY
     launch_ROS2
@@ -208,9 +208,9 @@ if(USE_ROS2)
     rviz_cfg/sam_ros2.rviz
     DESTINATION share/${PROJECT_NAME}/rviz_cfg
   )
-  install(TARGETS fins_mapping fins_calib
+  install(TARGETS liwins_mapping liwins_calib
     DESTINATION lib/${PROJECT_NAME})
-  install(DIRECTORY fins/ DESTINATION include)
+  install(DIRECTORY liwins/ DESTINATION include)
 
   ament_export_dependencies(rosidl_default_runtime)
   ament_package() # Don't forget this

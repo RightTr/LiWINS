@@ -225,7 +225,7 @@ void LidarImuWheelInitGraph::addLidarFactors(std::size_t frame_idx,
                                              const InitKeyframe &keyframe)
 {
   const gtsam::Key pose_key = gtsam::Symbol('x', frame_idx);
-  for (const auto &observation : keyframe.lidar_plane_observations)
+  for (const auto &observation : keyframe.lidar_obs)
   {
     graph_.add(boost::make_shared<LidarFactor>(
         pose_key,

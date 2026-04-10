@@ -1,4 +1,4 @@
-# FINS: Fused Inertial Navigation System
+# LIWINS: LiDAR-Inertial-Wheel Navigation System
 
 ## ⏰ Wait to be updated ...
 
@@ -53,7 +53,7 @@ colcon build --executor sequential
 cd li_pipline_ws 
 source devel/setup.bash
 # e.g.
-roslaunch fins sam_airy.launch
+roslaunch liwins sam_airy.launch
 ```
 
 ### Map wrapper
@@ -73,13 +73,13 @@ Run relocalization mode:
 # ROS1
 cd fastlio_ws 
 source devel/setup.bash
-roslaunch fins reloc_mid360.launch
+roslaunch liwins reloc_mid360.launch
 # Publish geometry_msgs::PoseStamped to the /reloc_topic
 
 # ROS2
 cd fastlio_ws 
 source install/setup.bash
-ros2 launch fins reloc_mid360.launch.py
+ros2 launch liwins reloc_mid360.launch.py
 # Publish geometry_msgs::msg::PoseStamped to the /reloc_topic
 ```
 
@@ -93,7 +93,7 @@ Now, FAST-LIO supports tracking and mapping using the RoboSense LiDARs (e.g., Ro
 
 ```bash
 # e.g.
-roslaunch fins mapping_airy.launch
+roslaunch liwins mapping_airy.launch
 ```
 
 ## 📝 TODO List

@@ -14,11 +14,11 @@ static void sig_handle(int sig)
 int main(int argc, char** argv)
 {
 #ifdef USE_ROS1
-    ros::init(argc, argv, "fins");
+    ros::init(argc, argv, "liwins");
     init_ros_node();
 #elif defined(USE_ROS2)
     rclcpp::init(argc, argv);
-    auto node = rclcpp::Node::make_shared("fins");
+    auto node = rclcpp::Node::make_shared("liwins");
     init_ros_node(node);
 #endif
 

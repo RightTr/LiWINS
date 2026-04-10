@@ -17,7 +17,7 @@ from rosbag2_py import StorageOptions
 from rosidl_runtime_py.utilities import get_message
 from sensor_msgs.msg import Imu
 
-from fins.msg import Wheel
+from liwins.msg import Wheel
 from livox_ros_driver2.msg import CustomMsg
 
 
@@ -25,7 +25,7 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description=(
             "Replay a ROS2 bag and convert the wheel topic from sensor_msgs/Imu "
-            "to fins/msg/Wheel while republishing the original IMU and LiDAR."
+            "to liwins/msg/Wheel while republishing the original IMU and LiDAR."
         )
     )
     parser.add_argument(
@@ -61,7 +61,7 @@ def parse_args():
     parser.add_argument(
         "--wheel-output-topic",
         default="/wheel",
-        help="Output wheel topic using fins/msg/Wheel.",
+        help="Output wheel topic using liwins/msg/Wheel.",
     )
     parser.add_argument(
         "--rate",

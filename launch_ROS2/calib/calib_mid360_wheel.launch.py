@@ -23,12 +23,12 @@ def load_ros1_yaml_as_params(yaml_file_path):
     
     return flatten_dict(config)
 
-rviz_cfg = os.path.join(get_package_share_directory("fins"), "rviz_cfg", "loam_ros2.rviz" )
+rviz_cfg = os.path.join(get_package_share_directory("liwins"), "rviz_cfg", "loam_ros2.rviz" )
 
 print(rviz_cfg)
 
 config_file = os.path.join(
-    get_package_share_directory("fins"), "config", "calib", "mid360_wheel.yaml"
+    get_package_share_directory("liwins"), "config", "calib", "mid360_wheel.yaml"
 )
 
 # Load ROS1 format YAML and convert params
@@ -46,9 +46,9 @@ fast_lio_params = [
 ]
 
 def generate_launch_description():
-    fins = Node(
-        package='fins',
-        executable='fins_calib',
+    liwins = Node(
+        package='liwins',
+        executable='liwins_calib',
         output='screen',
         parameters=fast_lio_params
     )
@@ -62,6 +62,6 @@ def generate_launch_description():
     )
     
     return LaunchDescription([
-        fins,
+        liwins,
         fins_rviz
     ])

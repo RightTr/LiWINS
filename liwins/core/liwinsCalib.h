@@ -13,11 +13,11 @@
 #include "ros_interface/ros_interface.h"
 #include "utils/trans_utils.h"
 
-class LIWINCalib
+class LIWINSCalib
 {
  public:
-  LIWINCalib() = default;
-  ~LIWINCalib() = default;
+  LIWINSCalib() = default;
+  ~LIWINSCalib() = default;
 
   void init();
   void run();

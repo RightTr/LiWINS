@@ -1,10 +1,10 @@
 #include <csignal>
 
-#include "core/liwinCalib.h"
+#include "core/liwinsCalib.h"
 #include "ros_interface/ros_interface.h"
 #include "ros_interface/ros_utils.h"
 
-static LIWINCalib *g_calib = nullptr;
+static LIWINSCalib *g_calib = nullptr;
 
 static void sig_handle(int sig)
 {
@@ -16,18 +16,18 @@ static void sig_handle(int sig)
 int main(int argc, char **argv)
 {
 #ifdef USE_ROS1
-  ros::init(argc, argv, "fins_calib");
+  ros::init(argc, argv, "liwins_calib");
   init_ros_node();
 #elif defined(USE_ROS2)
   rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("fins_calib");
+  auto node = rclcpp::Node::make_shared("liwins_calib");
   init_ros_node(node);
 #endif
 
   load_config();
   register_pub_sub();
 
-  LIWINCalib calib;
+  LIWINSCalib calib;
   g_calib = &calib;
   signal(SIGINT, sig_handle);
 

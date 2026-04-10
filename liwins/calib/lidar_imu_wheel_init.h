@@ -32,9 +32,8 @@ struct InitKeyframe
   gtsam::Vector3 initial_velocity = gtsam::Vector3::Zero();
   gtsam::imuBias::ConstantBias initial_bias;
   std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> imu_preintegration;
-  std::vector<ImuMsgConstPtr> imu_msgs;
   std::vector<WheelMsgConstPtr> wheel_msgs;
-  std::vector<optimizeLidarObs> lidar_plane_observations;
+  std::vector<optimizeLidarObs> lidar_obs;
 };
 
 struct InitGraphConfig
