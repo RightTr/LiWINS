@@ -89,29 +89,28 @@ void LIWINSCalib::init()
 
   init_state();
 
-  graph_config_.lidar_pose_in_imu =
+  auto &cfg = graph_config_;
+
+  cfg.lidar_pose_in_imu =
       gtsam::Pose3(gtsam::Rot3(Lidar_R_wrt_IMU_),
                    gtsam::Point3(Lidar_T_wrt_IMU_.x(), Lidar_T_wrt_IMU_.y(), Lidar_T_wrt_IMU_.z()));
   const double wheel_theta_in_imu = std::atan2(Wheel_R_wrt_IMU_(1, 0), Wheel_R_wrt_IMU_(0, 0));
-  graph_config_.initial_wheel_pose_in_imu =
+  cfg.initial_wheel_pose_in_imu =
       gtsam::Pose2(Wheel_T_wrt_IMU_.x(), Wheel_T_wrt_IMU_.y(), wheel_theta_in_imu);
-  graph_config_.initial_wheel_scales = gtsam::Point2(wheel_sr, wheel_sl);
-  graph_config_.gyro_noise_sigma = std::sqrt(gyr_cov);
-  graph_config_.accel_noise_sigma = std::sqrt(acc_cov);
-  graph_config_.gyro_bias_rw_sigma = std::sqrt(b_gyr_cov);
-  graph_config_.accel_bias_rw_sigma = std::sqrt(b_acc_cov);
-  graph_config_.first_pose_prior_sigma << first_pose_prior_sigma[0], first_pose_prior_sigma[1],
-      first_pose_prior_sigma[2], first_pose_prior_sigma[3], first_pose_prior_sigma[4],
-      first_pose_prior_sigma[5];
-  graph_config_.first_velocity_prior_sigma << first_velocity_prior_sigma[0],
-      first_velocity_prior_sigma[1], first_velocity_prior_sigma[2];
-  graph_config_.first_bias_prior_sigma << first_bias_prior_sigma[0], first_bias_prior_sigma[1],
-      first_bias_prior_sigma[2], first_bias_prior_sigma[3], first_bias_prior_sigma[4],
-      first_bias_prior_sigma[5];
-  graph_config_.wheel_extrinsic_prior_sigma << kFixedWheelTranslationSigma,
+  cfg.initial_wheel_scales = gtsam::Point2(wheel_sr, wheel_sl);
+  cfg.lidar_factor_sigma = lidar_point_cov_;
+  cfg.first_pose_prior_sigma =
+      Eigen::Map<const gtsam::Vector6>(first_pose_prior_sigma.data());
+  cfg.first_velocity_prior_sigma =
+      Eigen::Map<const gtsam::Vector3>(first_velocity_prior_sigma.data());
+  cfg.first_bias_prior_sigma =
+      Eigen::Map<const gtsam::Vector6>(first_bias_prior_sigma.data());
+  cfg.wheel_extrinsic_prior_sigma << kFixedWheelTranslationSigma,
       kFixedWheelTranslationSigma, wheel_extrinsic_prior_sigma[2];
-  graph_config_.wheel_scale_prior_sigma << wheel_scale_prior_sigma[0], wheel_scale_prior_sigma[1];
-  graph_config_.wheel_factor_sigma << wheel_factor_sigma[0], wheel_factor_sigma[1];
+  cfg.wheel_scale_prior_sigma =
+      Eigen::Map<const gtsam::Vector2>(wheel_scale_prior_sigma.data());
+  cfg.wheel_factor_sigma =
+      Eigen::Map<const gtsam::Vector2>(wheel_factor_sigma.data());
 
 }
 
@@ -176,9 +175,8 @@ void LIWINSCalib::run()
       continue;
     }
 
-    const bool has_optimized = !result_.values.empty();
     const M3D R_WI_prev = state_curr_.rot.toRotationMatrix();
-    if (wheel_en && has_optimized)
+    if (wheel_en && !result_.values.empty())
     {
       WheelPreintegration wheel_integrated;
       wheel_integrated.start_time = wheel_last_lidar_time_;
@@ -338,7 +336,6 @@ void LIWINSCalib::build_lidarObs(
     observation.plane_unit_normal_in_world =
         V3D(plane_coeff(0), plane_coeff(1), plane_coeff(2));
     observation.plane_offset = plane_coeff(3);
-    observation.sigma = lidar_point_cov_;
     obs.push_back(observation);
   }
 }

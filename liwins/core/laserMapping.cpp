@@ -85,10 +85,10 @@ void LaserMapping::run()
             {
                 std::lock_guard<std::mutex> lock(mtx_reloc);
                 state_point_reloc.pos = Eigen::Vector3d(
-                    reloc_state.x_, reloc_state.y_, reloc_state.z_);
+                    reloc_pose._x, reloc_pose._y, reloc_pose._z);
                 state_point_reloc.rot = Eigen::Quaterniond(
-                    reloc_state.qw_, reloc_state.qx_,
-                    reloc_state.qy_, reloc_state.qz_);
+                    reloc_pose._qw, reloc_pose._qx,
+                    reloc_pose._qy, reloc_pose._qz);
             }
             state_point_reloc.rot.normalize();
             kf_.reset(state_point_reloc);

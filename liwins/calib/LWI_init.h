@@ -23,7 +23,6 @@ struct optimizeLidarObs
   V3D point_in_lidar = Zero3d;
   V3D plane_unit_normal_in_world = V3D(0.0, 0.0, 1.0);
   double plane_offset = 0.0;
-  double sigma = 0.05;
 };
 
 struct LWIKeyframe
@@ -43,12 +42,7 @@ struct InitGraphConfig
   gtsam::Pose2 initial_wheel_pose_in_imu = gtsam::Pose2();
   gtsam::Point2 initial_wheel_scales = gtsam::Point2(1.0, 1.0);
 
-  double gravity_magnitude = G_m_s2;
-  double gyro_noise_sigma = 1e-2;
-  double accel_noise_sigma = 1e-1;
-  double gyro_bias_rw_sigma = 1e-4;
-  double accel_bias_rw_sigma = 1e-4;
-  double imu_integration_sigma = 1e-4;
+  double lidar_factor_sigma = 0.05;
 
   gtsam::Vector6 first_pose_prior_sigma =
       (gtsam::Vector6() << 1e-3, 1e-3, 1e-3, 1e-3, 1e-3, 1e-3).finished();

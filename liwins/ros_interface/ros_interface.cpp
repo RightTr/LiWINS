@@ -13,7 +13,7 @@ int     scan_count;
 int     publish_count;
 
 std::mutex         mtx_reloc;
-RelocState         reloc_state;
+Pose               reloc_pose;
 std::atomic<bool>  relocalize_flag;
 
 bool   sam_enable;
@@ -324,8 +324,7 @@ void reloc_cbk(const PoseStampedMsgConstPtr msg_in)
     double qw = msg_in->pose.orientation.w;
     
     std::lock_guard<std::mutex> lock(mtx_reloc);
-    reloc_state = RelocState(x, y, z,
-                    qx, qy, qz, qw, timestamp);
+    reloc_pose = Pose(x, y, z, qx, qy, qz, qw, timestamp);
     relocalize_flag.store(true); 
     ROS_PRINT_INFO("Reloc received: (%.3f, %.3f, %.3f), quat=(%.3f, %.3f, %.3f, %.3f)",
         x, y, z, qx, qy, qz, qw);

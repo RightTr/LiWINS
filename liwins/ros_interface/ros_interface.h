@@ -4,8 +4,8 @@
 #include "ros_utils.h"
 #include "sensors/IMU_Processing.h"
 #include "sensors/wheel_Processing.h"
+#include "utils/posebuffer.h"
 #include "utils/trans_utils.h"
-#include "utils/reloc.h"
 #include "utils/common_lib.h"
 
 extern bool   sam_enable;
@@ -60,7 +60,7 @@ extern double wheel_max_history_time;
 extern std::atomic<bool>  relocalize_flag;
 
 extern std::mutex         mtx_reloc;
-extern RelocState         reloc_state;
+extern Pose               reloc_pose;
 
 extern std::mutex              mtx_buffer;
 extern std::condition_variable sig_buffer;
