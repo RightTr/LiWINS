@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <vector>
 
 #include <gtsam/geometry/Rot3.h>
@@ -112,6 +113,14 @@ void LIWINSCalib::init()
   cfg.wheel_factor_sigma =
       Eigen::Map<const gtsam::Vector2>(wheel_factor_sigma.data());
 
+  std::filesystem::create_directories(DEBUG_FILE_DIR(""));
+  imu_state_file_.open(DEBUG_FILE_DIR("liw_calib_imu_state.txt"), std::ios::out);
+  wheel_state_file_.open(DEBUG_FILE_DIR("liw_calib_wheel_state.txt"), std::ios::out);
+  wheel_integration_file_.open(DEBUG_FILE_DIR("liw_calib_wheel_integration.txt"), std::ios::out);
+  imu_state_file_ << "# timestamp px py pz qx qy qz qw vx vy vz bax bay baz bgx bgy bgz\n";
+  wheel_state_file_ << "# timestamp tx ty theta sr sl\n";
+  wheel_integration_file_ << "# timestamp x y\n";
+
 }
 
 void LIWINSCalib::init_state()
@@ -193,6 +202,7 @@ void LIWINSCalib::run()
       wheel_integrated.y_2D = wheel_integrated_y_;
       publish_wheel_integration(wheel_integrated);
       publish_wheel_path(wheel_integrated_x_, wheel_integrated_y_, 0.0, wheel_integrated.end_time);
+      log_wheel_integration();
     }
 
     state_ikfom end_state = state_curr_;
@@ -386,6 +396,34 @@ void LIWINSCalib::map_incremental()
   point_map_->InsertPoints(points_to_add, true);
 }
 
+void LIWINSCalib::log_imu_state()
+{
+  imu_state_file_ << lidar_end_time_ << ' '
+                  << state_curr_.pos.x() << ' ' << state_curr_.pos.y() << ' ' << state_curr_.pos.z() << ' '
+                  << state_curr_.rot.x() << ' ' << state_curr_.rot.y() << ' ' << state_curr_.rot.z() << ' '
+                  << state_curr_.rot.w() << ' '
+                  << state_curr_.vel.x() << ' ' << state_curr_.vel.y() << ' ' << state_curr_.vel.z() << ' '
+                  << state_curr_.ba.x() << ' ' << state_curr_.ba.y() << ' ' << state_curr_.ba.z() << ' '
+                  << state_curr_.bg.x() << ' ' << state_curr_.bg.y() << ' ' << state_curr_.bg.z() << '\n';
+}
+
+void LIWINSCalib::log_wheel_state()
+{
+  wheel_state_file_ << lidar_end_time_ << ' '
+                    << result_.wheel_pose_in_imu.x() << ' '
+                    << result_.wheel_pose_in_imu.y() << ' '
+                    << result_.wheel_pose_in_imu.theta() << ' '
+                    << result_.wheel_scales.x() << ' '
+                    << result_.wheel_scales.y() << '\n';
+}
+
+void LIWINSCalib::log_wheel_integration()
+{
+  wheel_integration_file_ << lidar_end_time_ << ' '
+                          << wheel_integrated_x_ << ' '
+                          << wheel_integrated_y_ << '\n';
+}
+
 void LIWINSCalib::optimize()
 {
   if (keyframes_.empty())
@@ -437,6 +475,9 @@ void LIWINSCalib::optimize()
       last_keyframe.initial_bias.gyroscope().x(),
       last_keyframe.initial_bias.gyroscope().y(),
       last_keyframe.initial_bias.gyroscope().z());
+
+  log_imu_state();
+  log_wheel_state();
 
   while (static_cast<int>(keyframes_.size()) > window_size_)
     keyframes_.pop_front();

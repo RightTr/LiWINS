@@ -1,8 +1,5 @@
 build
-Log/*.png
-Log/*.txt
-Log/*.csv
-Log/*.pdf
+Log/*
 .vscode/c_cpp_properties.json
 .vscode/settings.json
 PCD/*.pcd

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <deque>
+#include <fstream>
 #include <memory>
 #include <vector>
 
@@ -39,6 +40,9 @@ class LIWINSCalib
   void publish_integrated_poses(double integration_beg_time);
   void map_incremental();
   void optimize();
+  void log_imu_state();
+  void log_wheel_state();
+  void log_wheel_integration();
 
   MeasureGroup Measures_;
   state_ikfom state_curr_;
@@ -77,4 +81,7 @@ class LIWINSCalib
   int frames_since_last_optimize_ = 0;
   int optimize_max_iterations_ = 30;
   double lidar_point_cov_ = 0.001;
+  std::ofstream imu_state_file_;
+  std::ofstream wheel_state_file_;
+  std::ofstream wheel_integration_file_;
 };
