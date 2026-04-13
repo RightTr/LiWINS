@@ -34,8 +34,8 @@ wheel:
     noise_x: 0.5
     noise_y: 0.5
     max_history_time: 100.0
-    sl: 0.03
-    sr: 0.03
+    sl: 0.026122833
+    sr: 0.026777901
     extrinsic_T: [-0.225, 0.411]
     extrinsic_Theta: 135.0  # deg
 
@@ -47,8 +47,8 @@ calib:
     first_pose_prior_sigma: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
     first_velocity_prior_sigma: [0.01, 0.01, 0.01]
     first_bias_prior_sigma: [0.001, 0.001, 0.001, 0.01, 0.01, 0.01]
-    wheel_extrinsic_prior_sigma: [0.1, 0.1, 0.2]
-    wheel_scale_prior_sigma: [0.2, 0.2]
+    wheel_extrinsic_prior_sigma: [1e-9, 1e-9, 7e0]  # [tx(m), ty(m), theta(deg)]
+    wheel_scale_prior_sigma: [1e-9, 1e-9]
     wheel_factor_sigma: [0.05, 0.05]
 
 publish:

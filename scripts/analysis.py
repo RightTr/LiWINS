@@ -5,7 +5,7 @@ import numpy as np
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-LOG_DIR = ROOT_DIR / "Log/20260413_110702_099"
+LOG_DIR = ROOT_DIR / "Log/20260413_191318"
 PLOT_DIR = LOG_DIR / "plots"
 
 
@@ -63,6 +63,57 @@ def plot_wheel_state(wheel_state: np.ndarray, out_path: Path) -> None:
     plt.close(fig)
 
 
+def plot_2d_pose_trajectory(
+    imu_state: np.ndarray,
+    wheel_state: np.ndarray,
+    wheel_integration: np.ndarray,
+    out_path: Path,
+) -> None:
+    fig, ax = plt.subplots(figsize=(10, 10))
+
+    imu_x = imu_state[:, 1]
+    imu_y = imu_state[:, 2]
+    wheel_x = wheel_integration[:, 1]
+    wheel_y = wheel_integration[:, 2]
+
+    ax.plot(
+        imu_x,
+        imu_y,
+        label="IMU trajectory",
+        linewidth=1.8,
+        color="0.75",
+        linestyle="--",
+    )
+    ax.plot(
+        wheel_x,
+        wheel_y,
+        label="Wheel trajectory",
+        linewidth=2.0,
+        color="tab:green",
+        linestyle="--",
+    )
+
+    ax.scatter(imu_x[0], imu_y[0], color="0.75", marker="o", s=50, label="IMU start")
+    ax.scatter(imu_x[-1], imu_y[-1], color="0.75", marker="x", s=60, label="IMU end")
+    ax.scatter(
+        wheel_x[0], wheel_y[0], color="tab:green", marker="o", s=50, label="Wheel start"
+    )
+    ax.scatter(
+        wheel_x[-1], wheel_y[-1], color="tab:green", marker="x", s=60, label="Wheel end"
+    )
+
+    ax.set_title("2D Translation Trajectory")
+    ax.set_xlabel("x (m)")
+    ax.set_ylabel("y (m)")
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, linestyle="--", alpha=0.4)
+    ax.legend()
+
+    fig.tight_layout()
+    fig.savefig(out_path, dpi=200)
+    plt.close(fig)
+
+
 def main() -> None:
     imu_state_path = LOG_DIR / "liw_calib_imu_state.txt"
     wheel_state_path = LOG_DIR / "liw_calib_wheel_state.txt"
@@ -84,9 +135,16 @@ def main() -> None:
         wheel_state,
         PLOT_DIR / "wheel_theta_sr_sl_vs_time.png",
     )
+    plot_2d_pose_trajectory(
+        imu_state,
+        wheel_state,
+        wheel_integration,
+        PLOT_DIR / "pose_trajectory_2d.png",
+    )
 
     print(f"saved: {PLOT_DIR / 'imu_wheel_position_vs_time.png'}")
     print(f"saved: {PLOT_DIR / 'wheel_theta_sr_sl_vs_time.png'}")
+    print(f"saved: {PLOT_DIR / 'pose_trajectory_2d.png'}")
 
 if __name__ == "__main__":
     main()

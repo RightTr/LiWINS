@@ -38,7 +38,7 @@ def parse_args():
     )
     parser.add_argument(
         "--bag",
-        default="/home/right/wheel_parser/data/20260407_112130",
+        default="/home/right/wheel_parser/data/20260413_170850",
         help="ROS2 bag directory.",
     )
     parser.add_argument(

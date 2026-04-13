@@ -107,8 +107,8 @@ void LIWINSCalib::init()
       Eigen::Map<const gtsam::Vector3>(first_velocity_prior_sigma.data());
   cfg.first_bias_prior_sigma =
       Eigen::Map<const gtsam::Vector6>(first_bias_prior_sigma.data());
-  cfg.wheel_extrinsic_prior_sigma << kFixedWheelTranslationSigma,
-      kFixedWheelTranslationSigma, wheel_extrinsic_prior_sigma[2];
+  cfg.wheel_extrinsic_prior_sigma << wheel_extrinsic_prior_sigma[0],
+      wheel_extrinsic_prior_sigma[1], deg2rad(wheel_extrinsic_prior_sigma[2]);
   cfg.wheel_scale_prior_sigma =
       Eigen::Map<const gtsam::Vector2>(wheel_scale_prior_sigma.data());
   cfg.wheel_factor_sigma =
@@ -126,7 +126,7 @@ void LIWINSCalib::init()
   wheel_state_file_ << std::fixed << std::setprecision(9);
   wheel_integration_file_ << std::fixed << std::setprecision(9);
   imu_state_file_ << "# timestamp px py pz qx qy qz qw vx vy vz bax bay baz bgx bgy bgz\n";
-  wheel_state_file_ << "# timestamp tx ty theta sr sl\n";
+  wheel_state_file_ << "# timestamp tx ty theta_deg sr sl\n";
   wheel_integration_file_ << "# timestamp x y\n";
 
 }
@@ -420,7 +420,7 @@ void LIWINSCalib::log_wheel_state()
   wheel_state_file_ << lidar_end_time_ << ' '
                     << result_.wheel_pose_in_imu.x() << ' '
                     << result_.wheel_pose_in_imu.y() << ' '
-                    << result_.wheel_pose_in_imu.theta() << ' '
+                    << rad2deg(result_.wheel_pose_in_imu.theta()) << ' '
                     << result_.wheel_scales.x() << ' '
                     << result_.wheel_scales.y() << '\n';
 }
@@ -499,7 +499,7 @@ void LIWINSCalib::optimize()
         "LIW calib initialized: tx=%.6f ty=%.6f theta=%.6f sr=%.6f sl=%.6f",
         result_.wheel_pose_in_imu.x(),
         result_.wheel_pose_in_imu.y(),
-        result_.wheel_pose_in_imu.theta(),
+        rad2deg(result_.wheel_pose_in_imu.theta()),
         result_.wheel_scales.x(),
         result_.wheel_scales.y());
     return;
@@ -509,7 +509,7 @@ void LIWINSCalib::optimize()
       "LIW calib updated: tx=%.6f ty=%.6f theta=%.6f sr=%.6f sl=%.6f",
       result_.wheel_pose_in_imu.x(),
       result_.wheel_pose_in_imu.y(),
-      result_.wheel_pose_in_imu.theta(),
+      rad2deg(result_.wheel_pose_in_imu.theta()),
       result_.wheel_scales.x(),
       result_.wheel_scales.y());
 }
