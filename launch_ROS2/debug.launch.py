@@ -55,7 +55,7 @@ def generate_launch_description():
         prefix='xterm -e gdb -ex run --args'
     )
 
-    fins_rviz = Node(
+    liwins_rviz = Node(
         package='rviz2',
         executable='rviz2',
         name='rviz2',
@@ -65,5 +65,5 @@ def generate_launch_description():
     
     return LaunchDescription([
         liwins,
-        fins_rviz
+        liwins_rviz
     ])
