@@ -47,9 +47,9 @@ calib:
     first_pose_prior_sigma: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
     first_velocity_prior_sigma: [0.01, 0.01, 0.01]
     first_bias_prior_sigma: [0.001, 0.001, 0.001, 0.01, 0.01, 0.01]
-    wheel_extrinsic_prior_sigma: [1e-9, 1e-9, 7e0]  # [tx(m), ty(m), theta(deg)]
-    wheel_scale_prior_sigma: [1e-9, 1e-9]
-    wheel_factor_sigma: [0.05, 0.05]
+    wheel_extrinsic_prior_sigma: [1e-9, 1e-9, 1e-9]  # [tx(m), ty(m), theta(deg)]
+    wheel_scale_prior_sigma: [0.05, 0.05]
+    wheel_factor_sigma: [0.15, 0.15]
 
 publish:
     path_en: false

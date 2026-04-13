@@ -32,6 +32,84 @@ gtsam::imuBias::ConstantBias state_to_gtsam_bias(const state_ikfom &state)
       gtsam::Vector3(state.bg[0], state.bg[1], state.bg[2]));
 }
 
+M3D pose6d_rot(const Pose6D &pose)
+{
+  M3D rot;
+  rot << pose.rot[0], pose.rot[1], pose.rot[2],
+      pose.rot[3], pose.rot[4], pose.rot[5],
+      pose.rot[6], pose.rot[7], pose.rot[8];
+  return rot;
+}
+
+M3D interpolate_imu_rotation(const std::vector<Pose6D> &imu_pose_traj,
+                             double offset_time,
+                             const M3D &fallback_rot)
+{
+  if (offset_time <= imu_pose_traj.front().offset_time)
+    return pose6d_rot(imu_pose_traj.front());
+
+  for (std::size_t i = 0; i + 1 < imu_pose_traj.size(); ++i)
+  {
+    const Pose6D &head = imu_pose_traj[i];
+    const Pose6D &tail = imu_pose_traj[i + 1];
+    if (offset_time > tail.offset_time)
+      continue;
+
+    const double segment_dt = tail.offset_time - head.offset_time;
+    if (segment_dt <= 0.0)
+      return pose6d_rot(tail);
+
+    const double dt = offset_time - head.offset_time;
+    M3D R_head = pose6d_rot(head);
+    V3D gyr_tail;
+    gyr_tail << tail.gyr[0], tail.gyr[1], tail.gyr[2];
+    return R_head * Exp(gyr_tail, dt);
+  }
+
+  return pose6d_rot(imu_pose_traj.back());
+}
+
+Eigen::Vector2d integrate_wheel_delta_world(
+    const std::deque<WheelMsgConstPtr> &wheel_msgs,
+    double sr,
+    double sl,
+    const std::vector<Pose6D> &imu_pose_traj,
+    double integration_beg_time,
+    const M3D &wheel_rot_in_imu,
+    const M3D &fallback_rot)
+{
+  Eigen::Vector2d delta_world = Eigen::Vector2d::Zero();
+  if (wheel_msgs.size() < 2)
+    return delta_world;
+
+  for (std::size_t i = 0; i + 1 < wheel_msgs.size(); ++i)
+  {
+    const double t0 = wheel_msgs[i]->timestamp;
+    const double t1 = wheel_msgs[i + 1]->timestamp;
+    const double dt = t1 - t0;
+    if (dt <= 0.0)
+      continue;
+
+    const double vx0 = sr * wheel_msgs[i]->encoder1;
+    const double vy0 = sl * wheel_msgs[i]->encoder2;
+    const double vx1 = sr * wheel_msgs[i + 1]->encoder1;
+    const double vy1 = sl * wheel_msgs[i + 1]->encoder2;
+    const V3D delta_odom(
+        0.5 * (vx0 + vx1) * dt,
+        0.5 * (vy0 + vy1) * dt,
+        0.0);
+
+    const double mid_time = 0.5 * (t0 + t1);
+    const double offset_time = mid_time - integration_beg_time;
+    const M3D R_WI =
+        interpolate_imu_rotation(imu_pose_traj, offset_time, fallback_rot);
+    const V3D delta_segment_world = R_WI * wheel_rot_in_imu.transpose() * delta_odom;
+    delta_world += delta_segment_world.head<2>();
+  }
+
+  return delta_world;
+}
+
 } // namespace
 
 void LIWINSCalib::init()
@@ -192,27 +270,6 @@ void LIWINSCalib::run()
       continue;
     }
 
-    const M3D R_WI_prev = state_curr_.rot.toRotationMatrix();
-    if (wheel_en && !result_.values.empty())
-    {
-      WheelPreintegration wheel_integrated;
-      wheel_integrated.start_time = wheel_last_lidar_time_;
-      wheel_integrated.end_time = lidar_end_time_;
-      const Eigen::Vector2d delta_wheel = integrate_wheel_delta(
-          Measures_.wheel, result_.wheel_scales.x(), result_.wheel_scales.y());
-      const M3D R_ItoO =
-          Eigen::AngleAxisd(result_.wheel_pose_in_imu.theta(), Eigen::Vector3d::UnitZ())
-              .toRotationMatrix();
-      const V3D delta_world = R_WI_prev * R_ItoO.transpose() * V3D(delta_wheel.x(), delta_wheel.y(), 0.0);
-      wheel_integrated_x_ += delta_world.x();
-      wheel_integrated_y_ += delta_world.y();
-      wheel_integrated.x_2D = wheel_integrated_x_;
-      wheel_integrated.y_2D = wheel_integrated_y_;
-      publish_wheel_integration(wheel_integrated);
-      publish_wheel_path(wheel_integrated_x_, wheel_integrated_y_, 0.0, wheel_integrated.end_time);
-      log_wheel_integration();
-    }
-
     state_ikfom end_state = state_curr_;
     std::shared_ptr<gtsam::PreintegratedCombinedMeasurements> imu_preintegration;
 
@@ -229,6 +286,31 @@ void LIWINSCalib::run()
 
     optimize();
     map_incremental();
+
+    if (wheel_en && !result_.values.empty())
+    {
+      WheelPreintegration wheel_integrated;
+      wheel_integrated.start_time = wheel_last_lidar_time_;
+      wheel_integrated.end_time = lidar_end_time_;
+      const M3D R_ItoO =
+          Eigen::AngleAxisd(result_.wheel_pose_in_imu.theta(), Eigen::Vector3d::UnitZ())
+              .toRotationMatrix();
+      const Eigen::Vector2d delta_world = integrate_wheel_delta_world(
+          Measures_.wheel,
+          result_.wheel_scales.x(),
+          result_.wheel_scales.y(),
+          imu_pose_traj_,
+          wheel_last_lidar_time_,
+          R_ItoO,
+          state_curr_.rot.toRotationMatrix());
+      wheel_integrated_x_ += delta_world.x();
+      wheel_integrated_y_ += delta_world.y();
+      wheel_integrated.x_2D = wheel_integrated_x_;
+      wheel_integrated.y_2D = wheel_integrated_y_;
+      publish_wheel_integration(wheel_integrated);
+      publish_wheel_path(wheel_integrated_x_, wheel_integrated_y_, 0.0, wheel_integrated.end_time);
+      log_wheel_integration();
+    }
 
     publish_odometry(make_odom_data(), lidar_end_time_);
     publish_path(make_pose_data(), lidar_end_time_);
@@ -486,9 +568,6 @@ void LIWINSCalib::optimize()
 
   log_imu_state();
   log_wheel_state();
-
-  while (static_cast<int>(keyframes_.size()) > window_size_)
-    keyframes_.pop_front();
 
   if (first_optimization)
   {

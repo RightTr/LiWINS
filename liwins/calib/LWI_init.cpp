@@ -171,8 +171,10 @@ void LidarImuWheelInitGraph::addCalibrationPriors()
   if (calibration_priors_added_)
     return;
 
-  initial_values_.insert(wheel_extrinsic_key_, config_.initial_wheel_pose_in_imu);
-  initial_values_.insert(wheel_scale_key_, config_.initial_wheel_scales);
+  if (!initial_values_.exists(wheel_extrinsic_key_))
+    initial_values_.insert(wheel_extrinsic_key_, config_.initial_wheel_pose_in_imu);
+  if (!initial_values_.exists(wheel_scale_key_))
+    initial_values_.insert(wheel_scale_key_, config_.initial_wheel_scales);
 
   graph_.add(gtsam::PriorFactor<gtsam::Pose2>(
       wheel_extrinsic_key_,

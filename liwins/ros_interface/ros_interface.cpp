@@ -430,15 +430,10 @@ void publish_path(const PoseData& pose, double lidar_end_time)
 	msgBodyPose.pose.orientation.y = pose.qy;
 	msgBodyPose.pose.orientation.z = pose.qz;
 	msgBodyPose.pose.orientation.w = pose.qw;
-
-	static int jjj = 0;
-	if (++jjj % 10 == 0)
-	{
-		path.poses.push_back(msgBodyPose);
-		path.header.stamp = msgBodyPose.header.stamp;
-		path.header.frame_id = "camera_init";
-        ros_publish(pubPath, path);
-	}
+    path.poses.push_back(msgBodyPose);
+    path.header.stamp = msgBodyPose.header.stamp;
+    path.header.frame_id = "camera_init";
+    ros_publish(pubPath, path);
 }
 
 void publish_odometryhighfreq(const Pose& pose)
