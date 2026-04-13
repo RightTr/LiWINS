@@ -40,14 +40,14 @@ wheel:
     extrinsic_Theta: 135.0  # deg
 
 calib:
-    window_size: 25
+    window_size: 100
     optimize_every_n: 1
     optimize_max_iterations: 30
     lidar_point_cov: 0.001
     first_pose_prior_sigma: [0.001, 0.001, 0.001, 0.001, 0.001, 0.001]
     first_velocity_prior_sigma: [0.01, 0.01, 0.01]
     first_bias_prior_sigma: [0.001, 0.001, 0.001, 0.01, 0.01, 0.01]
-    wheel_extrinsic_prior_sigma: [1e-9, 1e-9, 1e-9]  # [tx(m), ty(m), theta(deg)]
+    wheel_extrinsic_prior_sigma: [1e-9, 1e-9, 5e0]  # [tx(m), ty(m), theta(deg)]
     wheel_scale_prior_sigma: [0.05, 0.05]
     wheel_factor_sigma: [0.15, 0.15]
 
