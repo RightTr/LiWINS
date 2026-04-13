@@ -34,8 +34,8 @@ wheel:
     noise_x: 0.5
     noise_y: 0.5
     max_history_time: 100.0
-    sl: 0.3
-    sr: 0.3
+    sl: 0.03
+    sr: 0.03
     extrinsic_T: [-0.225, 0.411]
     extrinsic_Theta: 135.0  # deg
 

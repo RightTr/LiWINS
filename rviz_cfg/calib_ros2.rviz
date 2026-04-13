@@ -72,7 +72,7 @@ Visualization Manager:
           Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 151.1999969482422
+          Max Intensity: 150
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: PointCloud2
@@ -110,7 +110,7 @@ Visualization Manager:
           Enabled: true
           Invert Rainbow: false
           Max Color: 255; 255; 255
-          Max Intensity: 151.1999969482422
+          Max Intensity: 150
           Min Color: 0; 0; 0
           Min Intensity: 0
           Name: PointCloud2
@@ -352,25 +352,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 5.276557445526123
+      Distance: 10.38681411743164
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -1.819209098815918
-        Y: -0.2599835991859436
-        Z: 0.9281713962554932
+        X: -1.7231204509735107
+        Y: 0.07311344146728516
+        Z: 0.52159184217453
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.0447968244552612
+      Pitch: 1.0747967958450317
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.29854416847229
+      Yaw: 3.853543996810913
     Saved: ~
 Window Geometry:
   Displays:
@@ -388,5 +388,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1920
-  X: 2850
-  Y: 206
+  X: 2656
+  Y: 27

@@ -114,10 +114,14 @@ void LIWINSCalib::init()
   cfg.wheel_factor_sigma =
       Eigen::Map<const gtsam::Vector2>(wheel_factor_sigma.data());
 
-  std::filesystem::create_directories(DEBUG_FILE_DIR(""));
-  imu_state_file_.open(DEBUG_FILE_DIR("liw_calib_imu_state.txt"), std::ios::out);
-  wheel_state_file_.open(DEBUG_FILE_DIR("liw_calib_wheel_state.txt"), std::ios::out);
-  wheel_integration_file_.open(DEBUG_FILE_DIR("liw_calib_wheel_integration.txt"), std::ios::out);
+  const std::filesystem::path debug_root(DEBUG_FILE_DIR(""));
+  const std::filesystem::path run_debug_dir = debug_root / make_debug_timestamp();
+  std::filesystem::create_directories(run_debug_dir);
+  imu_state_file_.open((run_debug_dir / "liw_calib_imu_state.txt").string(), std::ios::out);
+  wheel_state_file_.open((run_debug_dir / "liw_calib_wheel_state.txt").string(), std::ios::out);
+  wheel_integration_file_.open(
+      (run_debug_dir / "liw_calib_wheel_integration.txt").string(), std::ios::out);
+  ROS_PRINT_INFO("Calibration debug files will be written to: %s", run_debug_dir.c_str());
   imu_state_file_ << std::fixed << std::setprecision(9);
   wheel_state_file_ << std::fixed << std::setprecision(9);
   wheel_integration_file_ << std::fixed << std::setprecision(9);

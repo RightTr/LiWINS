@@ -5,7 +5,11 @@
 #include <Eigen/Eigen>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
+#include <chrono>
+#include <ctime>
 #include <deque>
+#include <iomanip>
+#include <sstream>
 
 #include "ros_interface/ros_utils.h"
 
@@ -30,6 +34,22 @@ using namespace Eigen;
 #define ARRAY_FROM_EIGEN(mat)    mat.data(), mat.data() + mat.rows() * mat.cols()
 #define STD_VEC_FROM_EIGEN(mat)  vector<decltype(mat)::Scalar> (mat.data(), mat.data() + mat.rows() * mat.cols())
 #define DEBUG_FILE_DIR(name)     (string(string(ROOT_DIR) + "Log/"+ name))
+
+inline std::string make_debug_timestamp()
+{
+    const auto now = std::chrono::system_clock::now();
+    const auto now_time_t = std::chrono::system_clock::to_time_t(now);
+    const auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) %
+        1000;
+
+    std::tm local_tm{};
+    localtime_r(&now_time_t, &local_tm);
+
+    std::ostringstream oss;
+    oss << std::put_time(&local_tm, "%Y%m%d_%H%M%S");
+    return oss.str();
+}
 
 typedef pcl::PointXYZINormal PointType;
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
