@@ -75,31 +75,32 @@ Eigen::Vector2d integrate_wheel_delta_world(
     double sl,
     const std::vector<Pose6D> &imu_pose_traj,
     double integration_beg_time,
+    double integration_end_time,
     const M3D &wheel_rot_in_imu,
     const M3D &fallback_rot)
 {
   Eigen::Vector2d delta_world = Eigen::Vector2d::Zero();
-  if (wheel_msgs.size() < 2)
+  if (wheel_msgs.size() < 2 || integration_end_time <= integration_beg_time)
     return delta_world;
 
   for (std::size_t i = 0; i + 1 < wheel_msgs.size(); ++i)
   {
-    const double t0 = wheel_msgs[i]->timestamp;
-    const double t1 = wheel_msgs[i + 1]->timestamp;
-    const double dt = t1 - t0;
-    if (dt <= 0.0)
-      continue;
-
-    const double vx0 = sr * wheel_msgs[i]->encoder1;
-    const double vy0 = sl * wheel_msgs[i]->encoder2;
-    const double vx1 = sr * wheel_msgs[i + 1]->encoder1;
-    const double vy1 = sl * wheel_msgs[i + 1]->encoder2;
+    Eigen::Vector2d delta_odom_2d;
+    double mid_time = 0.0;
+    integrate_wheel_segment(
+        wheel_msgs[i],
+        wheel_msgs[i + 1],
+        integration_beg_time,
+        integration_end_time,
+        sr,
+        sl,
+        delta_odom_2d,
+        mid_time);
     const V3D delta_odom(
-        0.5 * (vx0 + vx1) * dt,
-        0.5 * (vy0 + vy1) * dt,
+        delta_odom_2d.x(),
+        delta_odom_2d.y(),
         0.0);
 
-    const double mid_time = 0.5 * (t0 + t1);
     const double offset_time = mid_time - integration_beg_time;
     const M3D R_WI =
         interpolate_imu_rotation(imu_pose_traj, offset_time, fallback_rot);
@@ -108,6 +109,19 @@ Eigen::Vector2d integrate_wheel_delta_world(
   }
 
   return delta_world;
+}
+
+V3D wheel_origin_to_imu_world(
+    double wheel_origin_x_in_world,
+    double wheel_origin_y_in_world,
+    const M3D &imu_rot_in_world,
+    const gtsam::Pose2 &wheel_pose_in_imu)
+{
+  const M3D R_ItoO =
+      Eigen::AngleAxisd(wheel_pose_in_imu.theta(), Eigen::Vector3d::UnitZ()).toRotationMatrix();
+  const M3D R_WO = imu_rot_in_world * R_ItoO.transpose();
+  const V3D p_IinO(wheel_pose_in_imu.x(), wheel_pose_in_imu.y(), 0.0);
+  return V3D(wheel_origin_x_in_world, wheel_origin_y_in_world, 0.0) + R_WO * p_IinO;
 }
 
 } // namespace
@@ -161,6 +175,7 @@ void LIWINSCalib::init()
   p_wheel->set_history_time(wheel_max_history_time);
   p_wheel->set_extrinsic(Wheel_T_wrt_IMU_, Wheel_R_wrt_IMU_);
   p_wheel->Reset();
+  last_wheel_msg_.reset();
   wheel_last_lidar_time_ = -1.0;
   wheel_integrated_x_ = 0.0;
   wheel_integrated_y_ = 0.0;
@@ -285,7 +300,6 @@ void LIWINSCalib::run()
     append_keyframe(obs, imu_preintegration);
 
     optimize();
-    map_incremental();
 
     if (wheel_en && !result_.values.empty())
     {
@@ -301,21 +315,30 @@ void LIWINSCalib::run()
           result_.wheel_scales.y(),
           imu_pose_traj_,
           wheel_last_lidar_time_,
+          lidar_end_time_,
           R_ItoO,
           state_curr_.rot.toRotationMatrix());
       wheel_integrated_x_ += delta_world.x();
       wheel_integrated_y_ += delta_world.y();
-      wheel_integrated.x_2D = wheel_integrated_x_;
-      wheel_integrated.y_2D = wheel_integrated_y_;
+      const V3D wheel_imu_world = wheel_origin_to_imu_world(
+          wheel_integrated_x_,
+          wheel_integrated_y_,
+          state_curr_.rot.toRotationMatrix(),
+          result_.wheel_pose_in_imu);
+      wheel_integrated.x_2D = wheel_imu_world.x();
+      wheel_integrated.y_2D = wheel_imu_world.y();
       publish_wheel_integration(wheel_integrated);
-      publish_wheel_path(wheel_integrated_x_, wheel_integrated_y_, 0.0, wheel_integrated.end_time);
-      log_wheel_integration();
+      publish_wheel_path(
+          wheel_imu_world.x(), wheel_imu_world.y(), wheel_imu_world.z(), wheel_integrated.end_time);
+      log_wheel_integration(wheel_imu_world.x(), wheel_imu_world.y());
     }
 
     publish_odometry(make_odom_data(), lidar_end_time_);
     publish_path(make_pose_data(), lidar_end_time_);
     publish_world_cloud(dense_pub_en ? feats_undistort_ : feats_down_body_, lidar_end_time_, "camera_init", state_curr_);
     if (scan_body_pub_en) publish_body_cloud(feats_undistort_, lidar_end_time_, "body", state_curr_);
+    
+    map_incremental();
     wheel_last_lidar_time_ = lidar_end_time_;
   }
 }
@@ -352,6 +375,8 @@ bool LIWINSCalib::sync_packages(MeasureGroup &meas)
 
   if (last_timestamp_imu < lidar_end_time_)
     return false;
+  if (wheel_en && last_timestamp_wheel < lidar_end_time_)
+    return false;
 
   double imu_time = get_ros_time_sec(imu_buffer.front()->header.stamp);
   meas.imu.clear();
@@ -366,17 +391,24 @@ bool LIWINSCalib::sync_packages(MeasureGroup &meas)
     imu_buffer.pop_front();
   }
 
+  if (wheel_en && last_wheel_msg_)
+    meas.wheel.push_back(last_wheel_msg_);
+
+  WheelMsgConstPtr last_wheel_in_interval;
   while (!wheel_buffer.empty() && wheel_buffer.front()->timestamp <= lidar_end_time_)
   {
-    meas.wheel.push_back(wheel_buffer.front());
+    last_wheel_in_interval = wheel_buffer.front();
+    meas.wheel.push_back(last_wheel_in_interval);
     wheel_buffer.pop_front();
   }
 
   if (wheel_en && !wheel_buffer.empty())
   {
     meas.wheel.push_back(wheel_buffer.front());
-    wheel_buffer.pop_front();
   }
+
+  if (last_wheel_in_interval)
+    last_wheel_msg_ = last_wheel_in_interval;
 
   lidar_buffer.pop_front();
   time_buffer.pop_front();
@@ -446,6 +478,8 @@ void LIWINSCalib::append_keyframe(
 {
   LWIKeyframe keyframe;
   keyframe.timestamp = lidar_end_time_;
+  keyframe.wheel_interval_start = wheel_last_lidar_time_;
+  keyframe.wheel_interval_end = lidar_end_time_;
   keyframe.initial_pose = state_to_gtsam_pose3(state_curr_);
   keyframe.initial_velocity = state_to_gtsam_velocity(state_curr_);
   keyframe.initial_bias = state_to_gtsam_bias(state_curr_);
@@ -507,11 +541,11 @@ void LIWINSCalib::log_wheel_state()
                     << result_.wheel_scales.y() << '\n';
 }
 
-void LIWINSCalib::log_wheel_integration()
+void LIWINSCalib::log_wheel_integration(double x, double y)
 {
   wheel_integration_file_ << lidar_end_time_ << ' '
-                          << wheel_integrated_x_ << ' '
-                          << wheel_integrated_y_ << '\n';
+                          << x << ' '
+                          << y << '\n';
 }
 
 void LIWINSCalib::optimize()

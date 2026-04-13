@@ -9,27 +9,61 @@
 #include <gtsam/navigation/ImuFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 
+void integrate_wheel_segment(
+    const WheelMsgConstPtr &wheel_msg0,
+    const WheelMsgConstPtr &wheel_msg1,
+    double interval_start,
+    double interval_end,
+    double sr,
+    double sl,
+    Eigen::Vector2d &delta,
+    double &mid_time)
+{
+  delta.setZero();
+  mid_time = 0.0;
+
+  const double dt = wheel_msg1->timestamp - wheel_msg0->timestamp;
+  if (dt <= 0.0)
+    return;
+
+  const double seg_start = std::max(wheel_msg0->timestamp, interval_start);
+  const double seg_end = std::min(wheel_msg1->timestamp, interval_end);
+  if (seg_end <= seg_start)
+    return;
+
+  const double alpha0 = (seg_start - wheel_msg0->timestamp) / dt;
+  const double alpha1 = (seg_end - wheel_msg0->timestamp) / dt;
+  const double vx0 =
+      sr * ((1.0 - alpha0) * wheel_msg0->encoder1 + alpha0 * wheel_msg1->encoder1);
+  const double vy0 =
+      sl * ((1.0 - alpha0) * wheel_msg0->encoder2 + alpha0 * wheel_msg1->encoder2);
+  const double vx1 =
+      sr * ((1.0 - alpha1) * wheel_msg0->encoder1 + alpha1 * wheel_msg1->encoder1);
+  const double vy1 =
+      sl * ((1.0 - alpha1) * wheel_msg0->encoder2 + alpha1 * wheel_msg1->encoder2);
+  const double clipped_dt = seg_end - seg_start;
+
+  delta.x() = 0.5 * (vx0 + vx1) * clipped_dt;
+  delta.y() = 0.5 * (vy0 + vy1) * clipped_dt;
+  mid_time = 0.5 * (seg_start + seg_end);
+}
+
 Eigen::Vector2d integrate_wheel_delta(
     const std::deque<WheelMsgConstPtr> &wheel_msgs,
+    double interval_start,
+    double interval_end,
     double sr,
     double sl)
 {
   Eigen::Vector2d delta = Eigen::Vector2d::Zero();
-  if (wheel_msgs.size() < 2)
-    return delta;
 
   for (std::size_t i = 0; i + 1 < wheel_msgs.size(); ++i)
   {
-    const double dt = wheel_msgs[i + 1]->timestamp - wheel_msgs[i]->timestamp;
-    if (dt <= 0.0)
-      continue;
-
-    const double vx0 = sr * wheel_msgs[i]->encoder1;
-    const double vy0 = sl * wheel_msgs[i]->encoder2;
-    const double vx1 = sr * wheel_msgs[i + 1]->encoder1;
-    const double vy1 = sl * wheel_msgs[i + 1]->encoder2;
-    delta.x() += 0.5 * (vx0 + vx1) * dt;
-    delta.y() += 0.5 * (vy0 + vy1) * dt;
+    Eigen::Vector2d segment_delta;
+    double mid_time = 0.0;
+    integrate_wheel_segment(
+        wheel_msgs[i], wheel_msgs[i + 1], interval_start, interval_end, sr, sl, segment_delta, mid_time);
+    delta += segment_delta;
   }
 
   return delta;
@@ -40,9 +74,13 @@ WheelFactor::WheelFactor(gtsam::Key pose0_key,
                          gtsam::Key wheel_extrinsic_key,
                          gtsam::Key wheel_scale_key,
                          const std::deque<WheelMsgConstPtr> &wheel_msgs,
+                         double wheel_interval_start,
+                         double wheel_interval_end,
                          const gtsam::SharedNoiseModel &noise_model)
     : Base(noise_model, pose0_key, pose1_key, wheel_extrinsic_key, wheel_scale_key),
-      wheel_msgs_(wheel_msgs)
+      wheel_msgs_(wheel_msgs),
+      wheel_interval_start_(wheel_interval_start),
+      wheel_interval_end_(wheel_interval_end)
 {
 }
 
@@ -52,7 +90,8 @@ gtsam::Vector2 WheelFactor::evaluateResidual(const gtsam::Pose3 &pose0,
                                              const gtsam::Point2 &wheel_scales) const
 {
   const gtsam::Vector2 wheel_delta =
-      integrate_wheel_delta(wheel_msgs_, wheel_scales.x(), wheel_scales.y());
+      integrate_wheel_delta(
+          wheel_msgs_, wheel_interval_start_, wheel_interval_end_, wheel_scales.x(), wheel_scales.y());
 
   const Eigen::Matrix3d R_WI0 = pose0.rotation().matrix();
   const Eigen::Matrix3d R_WI1 = pose1.rotation().matrix();
@@ -171,10 +210,8 @@ void LidarImuWheelInitGraph::addCalibrationPriors()
   if (calibration_priors_added_)
     return;
 
-  if (!initial_values_.exists(wheel_extrinsic_key_))
-    initial_values_.insert(wheel_extrinsic_key_, config_.initial_wheel_pose_in_imu);
-  if (!initial_values_.exists(wheel_scale_key_))
-    initial_values_.insert(wheel_scale_key_, config_.initial_wheel_scales);
+  initial_values_.insert(wheel_extrinsic_key_, config_.initial_wheel_pose_in_imu);
+  initial_values_.insert(wheel_scale_key_, config_.initial_wheel_scales);
 
   graph_.add(gtsam::PriorFactor<gtsam::Pose2>(
       wheel_extrinsic_key_,
@@ -234,6 +271,8 @@ void LidarImuWheelInitGraph::addWheelFactor(std::size_t frame_idx,
       wheel_extrinsic_key_,
       wheel_scale_key_,
       keyframe.wheel_msgs,
+      keyframe.wheel_interval_start,
+      keyframe.wheel_interval_end,
       gtsam::noiseModel::Diagonal::Sigmas(config_.wheel_factor_sigma)));
 }
 

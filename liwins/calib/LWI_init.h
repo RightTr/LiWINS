@@ -28,6 +28,8 @@ struct optimizeLidarObs
 struct LWIKeyframe
 {
   double timestamp = 0.0;
+  double wheel_interval_start = 0.0;
+  double wheel_interval_end = 0.0;
   gtsam::Pose3 initial_pose;
   gtsam::Vector3 initial_velocity = gtsam::Vector3::Zero();
   gtsam::imuBias::ConstantBias initial_bias;
@@ -65,8 +67,20 @@ struct InitGraphResult
   gtsam::Point2 wheel_scales;
 };
 
+void integrate_wheel_segment(
+    const WheelMsgConstPtr &wheel_msg0,
+    const WheelMsgConstPtr &wheel_msg1,
+    double interval_start,
+    double interval_end,
+    double sr,
+    double sl,
+    Eigen::Vector2d &delta,
+    double &mid_time);
+
 Eigen::Vector2d integrate_wheel_delta(
     const std::deque<WheelMsgConstPtr> &wheel_msgs,
+    double interval_start,
+    double interval_end,
     double sr,
     double sl);
 
@@ -81,6 +95,8 @@ class WheelFactor
               gtsam::Key wheel_extrinsic_key,
               gtsam::Key wheel_scale_key,
               const std::deque<WheelMsgConstPtr> &wheel_msgs,
+              double wheel_interval_start,
+              double wheel_interval_end,
               const gtsam::SharedNoiseModel &noise_model);
 
   gtsam::Vector evaluateError(
@@ -100,6 +116,8 @@ class WheelFactor
                                   const gtsam::Point2 &wheel_scales) const;
 
   std::deque<WheelMsgConstPtr> wheel_msgs_;
+  double wheel_interval_start_ = 0.0;
+  double wheel_interval_end_ = 0.0;
 };
 
 class LidarFactor : public gtsam::NoiseModelFactor1<gtsam::Pose3>

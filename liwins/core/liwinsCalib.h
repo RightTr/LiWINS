@@ -42,7 +42,7 @@ class LIWINSCalib
   void optimize();
   void log_imu_state();
   void log_wheel_state();
-  void log_wheel_integration();
+  void log_wheel_integration(double x, double y);
 
   MeasureGroup Measures_;
   state_ikfom state_curr_;
@@ -63,6 +63,7 @@ class LIWINSCalib
   double lidar_end_time_ = 0.0;
   double first_lidar_time_ = 0.0;
   double lidar_mean_scantime_ = 0.0;
+  WheelMsgConstPtr last_wheel_msg_;
   double wheel_last_lidar_time_ = -1.0;
   double wheel_integrated_x_ = 0.0;
   double wheel_integrated_y_ = 0.0;
@@ -76,11 +77,11 @@ class LIWINSCalib
   InitGraphConfig graph_config_;
   std::deque<LWIKeyframe> keyframes_;
   InitGraphResult result_;
-  int window_size_ = 25;
-  int optimize_every_n_ = 1;
+  int window_size_ ;
+  int optimize_every_n_;
   int frames_since_last_optimize_ = 0;
-  int optimize_max_iterations_ = 30;
-  double lidar_point_cov_ = 0.001;
+  int optimize_max_iterations_;
+  double lidar_point_cov_;
   std::ofstream imu_state_file_;
   std::ofstream wheel_state_file_;
   std::ofstream wheel_integration_file_;
