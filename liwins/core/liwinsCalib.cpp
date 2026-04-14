@@ -207,7 +207,7 @@ void LIWINSCalib::init()
   cfg.wheel_factor_sigma =
       Eigen::Map<const gtsam::Vector2>(wheel_factor_sigma.data());
 
-  const std::filesystem::path debug_root(DEBUG_FILE_DIR(""));
+  const std::filesystem::path debug_root(DEBUG_FILE_DIR("calib"));
   const std::filesystem::path run_debug_dir = debug_root / make_debug_timestamp();
   std::filesystem::create_directories(run_debug_dir);
   imu_state_file_.open((run_debug_dir / "liw_calib_imu_state.txt").string(), std::ios::out);
