@@ -22,6 +22,8 @@ A **LiDAR-Wheel-Inertial** SLAM and calibration system based on IKFoM, integrati
 
 * ROS2 adaptation and launch support.
 
+* The scripts used for wheel-IMU preprocessing, time-offset estimation, and calibration result analysis.
+
 ## 🛠️ Prerequisites
 
 * [gtsam](https://gtsam.org/get_started/) (Georgia Tech Smoothing and Mapping library)
@@ -80,6 +82,10 @@ ros2 launch liwins calib.launch.py
 ```
 
 This mode runs LiDAR-IMU-wheel calibration, including planar IMU-wheel extrinsic estimation and wheel scale estimation.
+
+### 🧰 Wheel-IMU calibration tools
+
+Wheel-IMU preprocessing, time-offset estimation, bag replay, and calibration result analysis scripts are documented in [`scripts/README.md`](scripts/README.md).
 
 ### 🧱 Map data structure
 
