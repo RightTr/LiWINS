@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 # python3 /home/right/fins_ws/src/FINS/scripts/replay_converted_bag.py \
-#     --bag /home/right/wheel_parser/data/straight \
-#     --imu-topic /livox/imu \
-#     --lidar-topic /livox/lidar \
-#     --wheel-topic /serial/wheels \
-#     --wheel-output-topic /wheel \
-#     --rate 1.0
+#   --bag /home/right/wheel_parser/data/straight \
+#   --imu-topic /livox/imu \
+#   --lidar-topic /livox/lidar \
+#   --wheel-topic /serial/wheels \
+#   --wheel-output-topic /serial/wheel \
+#   --rate 1.0
 
 import argparse
 import time

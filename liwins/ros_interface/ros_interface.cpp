@@ -102,6 +102,17 @@ M3D IMU_FLIP_R = (M3D() <<
     0.0, -1.0,  0.0,
     0.0,  0.0, -1.0).finished();
 
+void load_wheel_config() {
+    rosparam_get("wheel/sr", wheel_sr, 1.0);
+    rosparam_get("wheel/sl", wheel_sl, 1.0);
+    rosparam_get("wheel/noise_x", wheel_noise_x, 0.02);
+    rosparam_get("wheel/noise_y", wheel_noise_y, 0.02);
+    rosparam_get("wheel/max_history_time", wheel_max_history_time, 100.0);
+    rosparam_get("wheel/extrinsic_T", wheel_extrinT, std::vector<double>{0.0, 0.0});
+    rosparam_get("wheel/extrinsic_Theta", wheel_extrinTheta, 0.0);
+    wheel_extrinTheta = deg2rad(wheel_extrinTheta);
+}
+
 void load_config()
 {
 	rosparam_get("sam_enable", sam_enable, false);
@@ -146,14 +157,7 @@ void load_config()
     rosparam_get("mapping/extrinsic_R", Lidar_extrinR, std::vector<double>());
     
     rosparam_get("wheel/enable", wheel_en, false);
-    rosparam_get("wheel/sr", wheel_sr, 1.0);
-    rosparam_get("wheel/sl", wheel_sl, 1.0);
-    rosparam_get("wheel/noise_x", wheel_noise_x, 0.02);
-    rosparam_get("wheel/noise_y", wheel_noise_y, 0.02);
-    rosparam_get("wheel/max_history_time", wheel_max_history_time, 100.0);
-    rosparam_get("wheel/extrinsic_T", wheel_extrinT, std::vector<double>{0.0, 0.0});
-    rosparam_get("wheel/extrinsic_Theta", wheel_extrinTheta, 0.0);
-    wheel_extrinTheta = deg2rad(wheel_extrinTheta);
+    if (wheel_en ) load_wheel_config();
 
     p_pre->lidar_type = lidar_type;
 }

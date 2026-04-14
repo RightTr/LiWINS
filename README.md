@@ -12,7 +12,7 @@ A **LiDAR-Wheel-Inertial** SLAM and calibration system based on IKFoM, integrati
 
 * An optional LIO-SAM-style factor graph backend for joint optimization.
 
-* A unified map wrapper supporting multiple map backends, including ikd-Tree and OctVoxMap. 🗺️
+* A unified map data structure supporting multiple map backends, including ikd-Tree and OctVoxMap. 🗺️
 
 * High-frequency odometry output via IMU propagation between LiDAR scans. 📍
 
@@ -72,7 +72,7 @@ ros2 launch liwins sam.launch.py
 
 This mode enables the optional LIO-SAM-style factor graph backend for joint optimization.
 
-### ⚙️ Wheel calibration
+### ⚙️ Wheel-IMU calibration
 
 ```bash
 # For ROS2
@@ -81,7 +81,7 @@ ros2 launch liwins calib.launch.py
 
 This mode runs LiDAR-IMU-wheel calibration, including planar IMU-wheel extrinsic estimation and wheel scale estimation.
 
-### 🧱 Map wrapper
+### 🧱 Map data structure
 
 * ikd-Tree [[FAST-LIO2]](doc/Fast_LIO_2.pdf)
 * OctVoxMap + HKNN Search [[Super-LIO]](https://github.com/Liansheng-Wang/Super-LIO.git)

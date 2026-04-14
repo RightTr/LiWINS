@@ -5,15 +5,15 @@ import numpy as np
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-LOG_DIR = ROOT_DIR / "Log/20260414_002507"
+LOG_DIR = ROOT_DIR / "Log/20260414_182310"
 PLOT_DIR = LOG_DIR / "plots"
 
 
-def load_txt(path: Path) -> np.ndarray:
+def load_txt(path):
     return np.loadtxt(path, comments="#")
 
 
-def normalize_time(*arrays: np.ndarray) -> float:
+def normalize_time(*arrays):
     t0 = min(arr[0, 0] for arr in arrays if arr.size > 0)
     for arr in arrays:
         if arr.size > 0:
@@ -21,7 +21,7 @@ def normalize_time(*arrays: np.ndarray) -> float:
     return t0
 
 
-def plot_imu_wheel_position(imu_state: np.ndarray, wheel_integration: np.ndarray, out_path: Path) -> None:
+def plot_imu_wheel_position(imu_state, wheel_integration, out_path):
     fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
     axes[0].plot(imu_state[:, 0], imu_state[:, 1], label="imu_x", linewidth=1.5)
@@ -44,7 +44,7 @@ def plot_imu_wheel_position(imu_state: np.ndarray, wheel_integration: np.ndarray
     plt.close(fig)
 
 
-def plot_wheel_state(wheel_state: np.ndarray, out_path: Path) -> None:
+def plot_wheel_state(wheel_state, out_path):
     fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
 
     labels = [("theta (rad)", 3, "Wheel Theta vs Time"),
@@ -63,12 +63,7 @@ def plot_wheel_state(wheel_state: np.ndarray, out_path: Path) -> None:
     plt.close(fig)
 
 
-def plot_2d_pose_trajectory(
-    imu_state: np.ndarray,
-    wheel_state: np.ndarray,
-    wheel_integration: np.ndarray,
-    out_path: Path,
-) -> None:
+def plot_2d_pose_trajectory(imu_state, wheel_integration, out_path):
     fig, ax = plt.subplots(figsize=(10, 10))
 
     imu_x = imu_state[:, 1]
@@ -114,7 +109,7 @@ def plot_2d_pose_trajectory(
     plt.close(fig)
 
 
-def main() -> None:
+def main():
     imu_state_path = LOG_DIR / "liw_calib_imu_state.txt"
     wheel_state_path = LOG_DIR / "liw_calib_wheel_state.txt"
     wheel_integration_path = LOG_DIR / "liw_calib_wheel_integration.txt"
@@ -126,25 +121,18 @@ def main() -> None:
 
     normalize_time(imu_state, wheel_state, wheel_integration)
 
-    plot_imu_wheel_position(
-        imu_state,
-        wheel_integration,
+    saved_paths = [
         PLOT_DIR / "imu_wheel_position_vs_time.png",
-    )
-    plot_wheel_state(
-        wheel_state,
         PLOT_DIR / "wheel_theta_sr_sl_vs_time.png",
-    )
-    plot_2d_pose_trajectory(
-        imu_state,
-        wheel_state,
-        wheel_integration,
         PLOT_DIR / "pose_trajectory_2d.png",
-    )
+    ]
 
-    print(f"saved: {PLOT_DIR / 'imu_wheel_position_vs_time.png'}")
-    print(f"saved: {PLOT_DIR / 'wheel_theta_sr_sl_vs_time.png'}")
-    print(f"saved: {PLOT_DIR / 'pose_trajectory_2d.png'}")
+    plot_imu_wheel_position(imu_state, wheel_integration, saved_paths[0])
+    plot_wheel_state(wheel_state, saved_paths[1])
+    plot_2d_pose_trajectory(imu_state, wheel_integration, saved_paths[2])
+
+    for path in saved_paths:
+        print(f"saved: {path}")
 
 if __name__ == "__main__":
     main()

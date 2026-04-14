@@ -7,3 +7,4 @@ PCD/*.pcd
 package.xml
 .claude
 .codex
+scripts/__pycache__
