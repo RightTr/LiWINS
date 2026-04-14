@@ -2,8 +2,6 @@ common:
     lid_topic: "/livox/lidar"
     imu_topic: "/livox/imu"
     wheel_topic: "/serial/wheel"
-    time_sync_en: false
-    time_offset_lidar_to_imu: 0.0
     imu_flip_en: false
 
 preprocess:
@@ -12,9 +10,8 @@ preprocess:
     blind: 0.5
     timestamp_unit: 2
     scan_rate: 10
-
-max_iteration: 4
-point_filter_num: 2
+    time_sync_en: false
+    time_offset_lidar_to_imu: 0.0
 
 mapping:
     acc_cov: 0.1        # used by planar_calib_imu_sqrt_info_(acc)
@@ -23,7 +20,6 @@ mapping:
     b_gyr_cov: 0.0001   # used by bias prior/random walk
     fov_degree: 360.0
     det_range: 100.0
-    extrinsic_est_en: false
     extrinsic_T: [-0.011, -0.02329, 0.04412]
     extrinsic_R: [1.0, 0.0, 0.0,
                   0.0, 1.0, 0.0,
@@ -31,6 +27,8 @@ mapping:
 
 wheel:
     enable: true
+    time_sync_en: true
+    time_offset_wheel_to_imu: 0.03 # unit: ms
     noise_x: 0.5
     noise_y: 0.5
     max_history_time: 100.0
@@ -58,13 +56,3 @@ publish:
     scan_bodyframe_pub_en: false
     feature_pub_en: false
     effect_pub_en: false
-
-sam_enable: false
-
-reloc:
-    reloc_en: false
-    reloc_topic: "/reloc/manual"
-
-pcd_save:
-    pcd_save_en: false
-    interval: -1

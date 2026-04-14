@@ -119,6 +119,7 @@ using PoseStampedMsgConstPtr = geometry_msgs::msg::PoseStamped::ConstPtr;
 using ImuMsgConstPtr = sensor_msgs::msg::Imu::ConstPtr;
 using ImuMsgPtr = sensor_msgs::msg::Imu::Ptr;
 using WheelMsgConstPtr = liwins::msg::Wheel::ConstSharedPtr;
+using WheelMsgPtr = liwins::msg::Wheel::SharedPtr;
 using LivoxCustomMsgConstPtr = livox_ros_driver2::msg::CustomMsg::ConstPtr;
 using LivoxCustomMsg = livox_ros_driver2::msg::CustomMsg;
 using Pcl2MsgConstPtr = sensor_msgs::msg::PointCloud2::ConstPtr;

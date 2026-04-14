@@ -43,6 +43,7 @@ struct InitGraphConfig
   gtsam::Pose3 lidar_pose_in_imu;
   gtsam::Pose2 initial_wheel_pose_in_imu = gtsam::Pose2();
   gtsam::Point2 initial_wheel_scales = gtsam::Point2(1.0, 1.0);
+  double time_offset_wheel_to_imu = 0.0;
 
   double lidar_factor_sigma = 0.05;
 

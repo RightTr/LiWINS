@@ -16,7 +16,8 @@ extern bool   scan_body_pub_en;
 extern bool   feature_pub_en;
 extern bool   effect_pub_en;
 extern bool   reloc_en;
-extern bool   time_sync_en;
+extern bool   lidar_time_sync_en;
+extern bool   wheel_time_sync_en;
 extern bool   runtime_pos_log;
 extern bool   extrinsic_est_en;
 extern bool   pcd_save_en;
@@ -29,7 +30,8 @@ extern int    lidar_type;
 
 extern float  DET_RANGE;
 
-extern double time_diff_lidar_to_imu;
+extern double time_offset_lidar_to_imu;
+extern double time_offset_wheel_to_imu;
 extern double filter_size_corner_min;
 extern double filter_size_surf_min;
 extern double filter_size_map_min;

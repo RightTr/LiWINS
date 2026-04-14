@@ -24,7 +24,8 @@ bool   scan_body_pub_en;
 bool   feature_pub_en;
 bool   effect_pub_en;
 bool   reloc_en;
-bool   time_sync_en;
+bool   lidar_time_sync_en;
+bool   wheel_time_sync_en;
 bool   runtime_pos_log;
 bool   extrinsic_est_en;
 bool   pcd_save_en;
@@ -38,7 +39,8 @@ int    lidar_type;
 
 float  DET_RANGE;
 
-double time_diff_lidar_to_imu;
+double time_offset_lidar_to_imu;
+double time_offset_wheel_to_imu;
 double filter_size_corner_min;
 double filter_size_surf_min;
 double filter_size_map_min;
@@ -103,6 +105,7 @@ M3D IMU_FLIP_R = (M3D() <<
     0.0,  0.0, -1.0).finished();
 
 void load_wheel_config() {
+    rosparam_get("wheel/time_sync_en", wheel_time_sync_en, false);
     rosparam_get("wheel/sr", wheel_sr, 1.0);
     rosparam_get("wheel/sl", wheel_sl, 1.0);
     rosparam_get("wheel/noise_x", wheel_noise_x, 0.02);
@@ -110,6 +113,7 @@ void load_wheel_config() {
     rosparam_get("wheel/max_history_time", wheel_max_history_time, 100.0);
     rosparam_get("wheel/extrinsic_T", wheel_extrinT, std::vector<double>{0.0, 0.0});
     rosparam_get("wheel/extrinsic_Theta", wheel_extrinTheta, 0.0);
+    rosparam_get("wheel/time_offset_wheel_to_imu", time_offset_wheel_to_imu, 0.0);
     wheel_extrinTheta = deg2rad(wheel_extrinTheta);
 }
 
@@ -125,12 +129,10 @@ void load_config()
     rosparam_get("reloc/reloc_en", reloc_en, false);
     rosparam_get("max_iteration", NUM_MAX_ITERATIONS, 4);
     rosparam_get("map_file_path", map_file_path, std::string(""));
-    rosparam_get("common/lid_topic", lid_topic, std::string("/livox/lidar"));
+	rosparam_get("common/lid_topic", lid_topic, std::string("/livox/lidar"));
     rosparam_get("common/imu_topic", imu_topic, std::string("/livox/imu"));
     rosparam_get("common/wheel_topic", wheel_topic, std::string("/wheel"));
     rosparam_get("reloc/reloc_topic", reloc_topic, std::string("/reloc/manual"));
-    rosparam_get("common/time_sync_en", time_sync_en, false);
-    rosparam_get("common/time_offset_lidar_to_imu", time_diff_lidar_to_imu, 0.0);
     rosparam_get("common/imu_flip_en", imu_flip_en, false);
     rosparam_get("filter_size_corner", filter_size_corner_min, 0.5);
     rosparam_get("filter_size_surf", filter_size_surf_min, 0.5);
@@ -147,6 +149,8 @@ void load_config()
     rosparam_get("preprocess/scan_line", p_pre->N_SCANS, 16);
     rosparam_get("preprocess/timestamp_unit", p_pre->time_unit, (int)US);
     rosparam_get("preprocess/scan_rate", p_pre->SCAN_RATE, 10);
+    rosparam_get("preprocess/time_sync_en", lidar_time_sync_en, false);
+    rosparam_get("preprocess/time_offset_lidar_to_imu", time_offset_lidar_to_imu, 0.0);
     rosparam_get("point_filter_num", p_pre->point_filter_num, 2);
     rosparam_get("feature_extract_enable", p_pre->feature_enabled, false);
     rosparam_get("runtime_pos_log_enable", runtime_pos_log, false);
@@ -202,7 +206,8 @@ void standard_pcl_cbk(const Pcl2MsgConstPtr msg)
     mtx_buffer.lock();
     scan_count ++;
     double preprocess_start_time = omp_get_wtime();
-    const double stamp_sec = get_ros_time_sec(msg->header.stamp);
+    const double stamp_sec =
+        get_ros_time_sec(msg->header.stamp) + (lidar_time_sync_en ? 0.0 : time_offset_lidar_to_imu);
     if (stamp_sec < last_timestamp_lidar)
     {
         ROS_PRINT_ERROR("lidar loop back, clear buffer");
@@ -223,30 +228,35 @@ void livox_pcl_cbk(const LivoxCustomMsgConstPtr msg)
 	mtx_buffer.lock();
     double preprocess_start_time = omp_get_wtime();
     scan_count ++;
-    const double stamp_sec = get_ros_time_sec(msg->header.stamp);
+    const double raw_stamp_sec = get_ros_time_sec(msg->header.stamp);
+    double stamp_sec = raw_stamp_sec + (lidar_time_sync_en ? 0.0 : time_offset_lidar_to_imu);
     if (stamp_sec < last_timestamp_lidar)
     {
         ROS_PRINT_ERROR("lidar loop back, clear buffer");
         lidar_buffer.clear();
     }
-    last_timestamp_lidar = stamp_sec;
     
-    if (!time_sync_en && abs(last_timestamp_imu - last_timestamp_lidar) > 10.0 && !imu_buffer.empty() && !lidar_buffer.empty() )
+    if (!lidar_time_sync_en && abs(last_timestamp_imu - stamp_sec) > 10.0 && !imu_buffer.empty() && !lidar_buffer.empty() )
     {
-        printf("IMU and LiDAR not Synced, IMU time: %lf, lidar header time: %lf \n",last_timestamp_imu, last_timestamp_lidar);
+        printf("IMU and LiDAR not Synced, IMU time: %lf, lidar time: %lf \n", last_timestamp_imu, stamp_sec);
     }
 
-    if (time_sync_en && !timediff_set_flg && abs(last_timestamp_lidar - last_timestamp_imu) > 1 && !imu_buffer.empty())
+    if (lidar_time_sync_en && !timediff_set_flg && abs(raw_stamp_sec - last_timestamp_imu) > 1 && !imu_buffer.empty())
     {
         timediff_set_flg = true;
-        timediff_lidar_wrt_imu = last_timestamp_lidar + 0.1 - last_timestamp_imu;
+        timediff_lidar_wrt_imu = last_timestamp_imu - (raw_stamp_sec + 0.1);
         printf("Self sync IMU and LiDAR, time diff is %.10lf \n", timediff_lidar_wrt_imu);
     }
+    if (abs(timediff_lidar_wrt_imu) > 0.1 && lidar_time_sync_en)
+    {
+        stamp_sec = raw_stamp_sec + timediff_lidar_wrt_imu;
+    }
+    last_timestamp_lidar = stamp_sec;
 
     PointCloudXYZI::Ptr  ptr(new PointCloudXYZI());
     p_pre->process(msg, ptr);
     lidar_buffer.push_back(ptr);
-    time_buffer.push_back(last_timestamp_lidar);
+    time_buffer.push_back(stamp_sec);
     
     mtx_buffer.unlock();
     sig_buffer.notify_all();
@@ -274,13 +284,7 @@ void imu_cbk(const ImuMsgConstPtr msg_in)
         msg->linear_acceleration.z = acc_flip.z();
     }
 
-    const double msg_in_stamp_sec = get_ros_time_sec(msg_in->header.stamp);
-    msg->header.stamp = get_ros_time(msg_in_stamp_sec - time_diff_lidar_to_imu);
-    if (abs(timediff_lidar_wrt_imu) > 0.1 && time_sync_en)
-    {
-        msg->header.stamp = get_ros_time(timediff_lidar_wrt_imu + msg_in_stamp_sec);
-    }
-    double timestamp = get_ros_time_sec(msg->header.stamp);
+    const double timestamp = get_ros_time_sec(msg->header.stamp);
 
     mtx_buffer.lock();
 
@@ -299,7 +303,9 @@ void imu_cbk(const ImuMsgConstPtr msg_in)
 
 void wheel_cbk(const WheelMsgConstPtr msg_in)
 {
-    const double timestamp = msg_in->timestamp;
+    WheelMsgPtr msg(new WheelMsg(*msg_in));
+    const double timestamp =
+        msg->timestamp = msg_in->timestamp + (wheel_time_sync_en ? 0.0 : time_offset_wheel_to_imu);
 
     mtx_buffer.lock();
 
@@ -310,7 +316,7 @@ void wheel_cbk(const WheelMsgConstPtr msg_in)
     }
 
     last_timestamp_wheel = timestamp;
-    wheel_buffer.push_back(msg_in);
+    wheel_buffer.push_back(msg);
     mtx_buffer.unlock();
     sig_buffer.notify_all();
 }

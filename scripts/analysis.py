@@ -5,7 +5,7 @@ import numpy as np
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-LOG_DIR = ROOT_DIR / "Log/20260414_182310"
+LOG_DIR = ROOT_DIR / "Log/calib/20260414_182310"
 PLOT_DIR = LOG_DIR / "plots"
 
 
@@ -63,13 +63,13 @@ def plot_wheel_state(wheel_state, out_path):
     plt.close(fig)
 
 
-def plot_2d_pose_trajectory(imu_state, wheel_integration, out_path):
+def plot_2d_pose_trajectory(imu_state, wheel_plot, ate, out_path):
     fig, ax = plt.subplots(figsize=(10, 10))
 
     imu_x = imu_state[:, 1]
     imu_y = imu_state[:, 2]
-    wheel_x = wheel_integration[:, 1]
-    wheel_y = wheel_integration[:, 2]
+    wheel_x = wheel_plot[:, 1]
+    wheel_y = wheel_plot[:, 2]
 
     ax.plot(
         imu_x,
@@ -103,10 +103,46 @@ def plot_2d_pose_trajectory(imu_state, wheel_integration, out_path):
     ax.set_aspect("equal", adjustable="box")
     ax.grid(True, linestyle="--", alpha=0.4)
     ax.legend()
+    ax.text(
+        0.02,
+        0.98,
+        f"ATE RMSE: {ate['rmse']:.3f} m\nATE Mean: {ate['mean']:.3f} m\nATE Max: {ate['max']:.3f} m",
+        transform=ax.transAxes,
+        ha="left",
+        va="top",
+        bbox={"facecolor": "white", "alpha": 0.85, "edgecolor": "0.8"},
+    )
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=200)
     plt.close(fig)
+
+
+def align_wheel_translation(imu_state, wheel_integration):
+    wheel_mask = (
+        (wheel_integration[:, 0] >= imu_state[0, 0])
+        & (wheel_integration[:, 0] <= imu_state[-1, 0])
+    )
+    wheel_aligned = wheel_integration[wheel_mask]
+    imu_x = np.interp(wheel_aligned[:, 0], imu_state[:, 0], imu_state[:, 1])
+    imu_y = np.interp(wheel_aligned[:, 0], imu_state[:, 0], imu_state[:, 2])
+    offset = np.array([imu_x[0] - wheel_aligned[0, 1], imu_y[0] - wheel_aligned[0, 2]])
+    return wheel_aligned, imu_x, imu_y, offset
+
+
+def compute_ate(imu_state, wheel_integration):
+    wheel_aligned, imu_x, imu_y, offset = align_wheel_translation(imu_state, wheel_integration)
+    wheel_x = wheel_aligned[:, 1] + offset[0]
+    wheel_y = wheel_aligned[:, 2] + offset[1]
+    err = np.sqrt((imu_x - wheel_x) ** 2 + (imu_y - wheel_y) ** 2)
+    return {
+        "count": len(err),
+        "rmse": np.sqrt(np.mean(err ** 2)),
+        "mean": np.mean(err),
+        "max": np.max(err),
+        "offset_x": offset[0],
+        "offset_y": offset[1],
+    }
 
 
 def main():
@@ -127,12 +163,20 @@ def main():
         PLOT_DIR / "pose_trajectory_2d.png",
     ]
 
+    ate = compute_ate(imu_state, wheel_integration)
+    wheel_plot = wheel_integration.copy()
+    wheel_plot[:, 1] += ate["offset_x"]
+    wheel_plot[:, 2] += ate["offset_y"]
     plot_imu_wheel_position(imu_state, wheel_integration, saved_paths[0])
     plot_wheel_state(wheel_state, saved_paths[1])
-    plot_2d_pose_trajectory(imu_state, wheel_integration, saved_paths[2])
+    plot_2d_pose_trajectory(imu_state, wheel_plot, ate, saved_paths[2])
 
     for path in saved_paths:
         print(f"saved: {path}")
+    print(
+        f"ate_2d count={ate['count']} rmse={ate['rmse']:.6f} "
+        f"mean={ate['mean']:.6f} max={ate['max']:.6f}"
+    )
 
 if __name__ == "__main__":
     main()

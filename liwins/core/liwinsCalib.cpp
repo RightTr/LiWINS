@@ -193,6 +193,7 @@ void LIWINSCalib::init()
   cfg.initial_wheel_pose_in_imu =
       gtsam::Pose2(Wheel_T_wrt_IMU_.x(), Wheel_T_wrt_IMU_.y(), wheel_theta_in_imu);
   cfg.initial_wheel_scales = gtsam::Point2(wheel_sr, wheel_sl);
+  cfg.time_offset_wheel_to_imu = time_offset_wheel_to_imu;
   cfg.lidar_factor_sigma = lidar_point_cov_;
   cfg.first_pose_prior_sigma =
       Eigen::Map<const gtsam::Vector6>(first_pose_prior_sigma.data());
