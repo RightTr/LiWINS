@@ -5,7 +5,7 @@ import numpy as np
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-LOG_DIR = ROOT_DIR / "Log/calib/20260414_182310"
+LOG_DIR = ROOT_DIR / "Log/calib/20260415_001248"
 PLOT_DIR = LOG_DIR / "plots"
 
 
@@ -16,8 +16,7 @@ def load_txt(path):
 def normalize_time(*arrays):
     t0 = min(arr[0, 0] for arr in arrays if arr.size > 0)
     for arr in arrays:
-        if arr.size > 0:
-            arr[:, 0] -= t0
+        arr[:, 0] -= t0
     return t0
 
 
@@ -64,7 +63,7 @@ def plot_wheel_state(wheel_state, out_path):
 
 
 def plot_2d_pose_trajectory(imu_state, wheel_plot, ate, out_path):
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(12, 8))
 
     imu_x = imu_state[:, 1]
     imu_y = imu_state[:, 2]
@@ -100,7 +99,15 @@ def plot_2d_pose_trajectory(imu_state, wheel_plot, ate, out_path):
     ax.set_title("2D Translation Trajectory")
     ax.set_xlabel("x (m)")
     ax.set_ylabel("y (m)")
-    ax.set_aspect("equal", adjustable="box")
+    all_x = np.concatenate((imu_x, wheel_x))
+    all_y = np.concatenate((imu_y, wheel_y))
+    x_span = np.ptp(all_x)
+    y_span = np.ptp(all_y)
+    x_margin = max(x_span * 0.05, 0.05)
+    y_margin = max(y_span * 0.1, 0.05)
+    ax.set_xlim(all_x.min() - x_margin, all_x.max() + x_margin)
+    ax.set_ylim(all_y.min() - y_margin, all_y.max() + y_margin)
+    ax.set_aspect("auto")
     ax.grid(True, linestyle="--", alpha=0.4)
     ax.legend()
     ax.text(
